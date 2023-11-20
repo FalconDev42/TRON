@@ -1028,6 +1028,38 @@ PROC moveEntities
 	ret
 ENDP moveEntities
 
+PROC selectiveBackgroundFiller
+	ARG		@@PtrTanks:dword, @@PtrBullets:dword
+	USES 	ebx, ecx, edi
+	
+	mov edi, [@@PtrTanks]
+	mov ebx, [TankSize]
+	mov ecx, [TotalOfTanks]
+	
+	TanksBackgoundLoop:
+	cmp [edi + TANK.alive], 0
+	je SHORT noBackgroundResetNeededTank
+	
+	call drawFilledRectangle, [edi + TANK.X], [edi + TANK.Y], [edi + TANK.W], [edi + TANK.H], 0
+	
+	noBackgroundResetNeededTank:
+	add edi, ebx
+	loop TanksBackgoundLoop
+	
+	mov	edi, [@@PtrBullets]
+	mov ebx, [BulletSize]
+	mov ecx, [TotalOfBullets]
+	
+	BulletsBackgoundLoop:
+	; cannot ignore non active bullets because they may still be drawn
+	call drawFilledRectangle, [edi + BULLET.X], [edi + BULLET.Y], [edi + BULLET.W], [edi + BULLET.H], 0
+	
+	add edi, ebx
+	loop BulletsBackgoundLoop
+	
+	ret
+ENDP selectiveBackgroundFiller
+
 PROC show
 	ARG		@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
@@ -1156,16 +1188,15 @@ start:
 	mov ecx, 1000
 	drawLoop:
 	
-	call	fillBackgroundFaster, 0
+	call selectiveBackgroundFiller, edi, ebx
 	
 	call inputFromPlayer, edi, ebx
 	
-	
-	call show, edi, ebx, edx
-	
-	
 	call moveEntities, edi, edx, ebx
 	
+	
+	
+	call show, edi, ebx, edx
 	
 	
 	;call	drawRectangle, ecx, 50, 60, 90, 32
