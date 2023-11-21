@@ -23,71 +23,6 @@ SCRHEIGHT EQU 200	; screen height
 RAND_A = 1103515245
 RAND_C = 12345
 CODESEG
-PROC printUnsignedInteger
-;...
-	ARG @@arg1:dword
-	;LOCAL 
-	USES eax,ebx,ecx,edi,esi
-	mov eax,[@@arg1]
-	mov ebx, 10
-	xor ecx ,ecx
-	xor esi,esi
-	xor edi,edi
-	cmp eax,0
-	jl negl
-	jge divloop
-	negl:
-		push eax
-		
-		mov ah, 02h
-		mov dl,'-'
-		int 21h
-		pop eax
-		neg eax
-	divloop:
-		inc ecx
-		xor edx, edx ; set EDX to zero (so EDX:EAX = EAX)
-		idiv ebx ; eax result, edx remainder
-		
-		push dx
-		
-		test eax, eax
-	jnz divloop
-	printloop:
-		mov ah, 02h
-		pop dx
-		add dl, '0'
-		int 21h
-	loop printloop
-	ret
-ENDP printUnsignedInteger
-
-PROC printIntList
-	ARG @@arrayptr:dword
-	;LOCAL
-	USES ebx,eax,ecx
-	mov ebx, [@@arrayptr]
-	mov ecx,[ebx]
-	arrayiter:
-		add ebx,4
-		call printUnsignedInteger,[dword ptr ebx]
-		
-		
-		
-		mov ah, 02h
-		mov dl, ','
-		int 21h
-		
-		loop arrayiter
-		
-		mov	dl, 0Dh		; Carriage return.
-		int	21h
-		mov	dl, 0Ah		; New line.
-		int 21h
-	ret
-	
-
-ENDP printIntList
 
 PROC setVideoMode
 	ARG arg1:word
@@ -155,17 +90,16 @@ ENDP drawRectangle
 	
 PROC spider
     USES eax, ebx, esi, edx,ecx,edi
-    mov ebx, offset playerpos;gets player position
+    mov ebx, offset player;gets player position
     mov ecx, [spideramount]; counter for the amount of spiders we will iterate over
     ;mov ecx, ecx    ; The counter for the loop
-    mov esi,offset spiderpos
+    mov esi,offset spiders
 	mov eax,0
-	mov edx,[esi]
-	mov edi,[esi+4]; define so that we can run the collision checks
+	mov edi,[spidersize]; define so that we can run the collision checks
     drawloop:
 		
         ; Get the x and y positions from spiderpos array
-        mov edx,[esi]     ; X position
+        mov edx,[esi+spiders.X]     ; X position
                     ; Move to the next position in the array
 		call randBetweenVal,0,10 ; find random value between 0 and 10
 		
@@ -175,10 +109,8 @@ PROC spider
 		
 		RETURN_X_CHECK:
 		
-		add esi, 4  
-		
 		; Move to the next position in the array
-        mov edi,[esi]
+        mov edx,[esi+spiders.Y]
         
 		call randBetweenVal,0,10
 		cmp eax,7; can change value here to change percentage of true or random moves
@@ -186,15 +118,16 @@ PROC spider
 		jge randommove_y
 		
 		RETURN_Y_CHECK:
-		add esi,4 
-        call drawspider, edx, edi, 1  ; Color 1 (red); Call drawDot to draw the spider
+		;add esi,4 
+        call drawspider, [esi+spiders.X], [esi+spiders.Y], 1  ; Color 1 (red); Call drawDot to draw the spider
         
         ; Decrease the loop counter and check if we've processed all spiders
-        loop drawloop
+        add esi, edi
+		loop drawloop
         jmp exitspider
 		
 		truemove_x:
-		cmp edx,[ebx]; checks if player is left or right of spider
+		cmp edx,[ebx+player.X]; checks if player is left or right of spider
 		jg movespiderLEFT
 		jl movespiderRIGHT
 		jmp RETURN_X_CHECK
@@ -206,7 +139,7 @@ PROC spider
 		jge movespiderRIGHT
 		
 		truemove_y:
-		cmp edi, [ebx+4]; checks if spider height is lower or greater than playerheight
+		cmp edx, [ebx+player.Y]; checks if spider height is lower or greater than playerheight
 		jl movespiderDOWN
 		jg movespiderUP
 		jmp RETURN_Y_CHECK
@@ -219,22 +152,22 @@ PROC spider
 		
 		movespiderLEFT:
 		dec edx
-		mov [esi],edx
+		mov [esi+spiders.X],edx
 		jmp RETURN_X_CHECK
 		
 		movespiderRIGHT:
 		inc edx
-		mov [esi],edx
+		mov [esi+spiders.X],edx
 		jmp RETURN_X_CHECK
 		
 		movespiderDOWN:
-		inc edi
-		mov [esi],edi
+		inc edx
+		mov [esi+spiders.Y],edx
 		jmp RETURN_Y_CHECK
 		
 		movespiderUP:
-		dec edi
-		mov [esi],edi
+		dec edx
+		mov [esi+spiders.Y],edx
 		jmp RETURN_Y_CHECK
 		
 		exitspider:
@@ -297,6 +230,8 @@ ENDP spiderterrain
 
 PROC setupspider
 	call setVideoMode,13h
+	call initialize_spider_player,100,100
+	call initialize_spider_spider
 	call spiderterrain
 	gameloop:
 	call spidergame,001Bh
@@ -340,14 +275,14 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	
     ; Get spider count, spider and player positions
     mov ecx, [spideramount]
-    mov edx, offset spiderpos
+    mov edx, offset spiders
     mov esi, [x_pos]
 	mov ebx, [y_pos]
     ; Check for collisions
     xor edi, edi ; Clear index register for spider loop
 	spiderloop:
 	;xor eax,eax
-    mov edi, [edx] ; Get spider x
+    mov edi, [edx+spiders.X] ; Get spider x
     pop eax
 	cmp eax,1
 	jge spiderskip_x
@@ -375,7 +310,6 @@ PROC collisiondet; will be checking in a three by three area around the players 
     je sameaxis_x
 	return_x:
     ; Move to the next spider
-    add edx, 4
 	
     ; If no collision detected, exit
     ;spiderloop_y:
@@ -386,7 +320,7 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	push eax;pushes it back to stack
 	xor eax,eax
 	mov eax,edi
-	mov edi, [edx]
+	mov edi, [edx+spiders.Y]
 	jge spiderskip_y
     cmp edi, ebx ; Check player y, for some reason if i dont add this it doesnt collision doesnt trigger using the other checks if plpayer doesnt move, if they do move and collide in movement it does, dont know why that happens isnt logical
     je sameaxis_y
@@ -407,7 +341,7 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	jmp collisiontest
     ; Move to the next spider
 	restartloop:
-    add edx, 4
+    add edx, [spideramount]
     dec ecx ; Decrease spider count
     jnz spiderloop ; Jump if not zero to continue checking collisions
 	;xor eax,eax
@@ -485,16 +419,16 @@ ENDP collisiondet2
 
 PROC victorydet; checks the conditions for the win, sure its manual but seems cho to me tbh
 	USES eax,edi,esi
-	mov edi, offset playerpos
+	mov edi, offset player
 	mov esi, offset safezone
-	mov eax,[edi]
+	mov eax,[edi+player.X]
 	cmp eax,[esi];checks first border for x
 	jl notSafe
 	add esi,4
 	cmp eax,[esi];checks second border for x
 	jg notSafe
 	add esi,4
-	mov eax,[edi+4]
+	mov eax,[edi+player.Y]
 	cmp eax,[esi];checks first border for y
 	jl notSafe
 	add esi,4
@@ -586,16 +520,90 @@ PROC drawspider; will be drawing the spider as a cross similar to 'X'
     ret
 ENDP drawspider
 
+PROC initialize_spider_spider; will read from an array, and set semi random start positions for the spiders
+	USES eax,ebx,ecx,edx,esi,edi
+	mov esi, offset spiders
+	mov edi, offset spiderpos
+	mov ecx, [spideramount]
+	mov ebx, [spidersize]
+	spider_init_loop:
+	;	mov edx,[edi]
+	;	sub edx,5; add this step because randbetweenval cant give negative(i think not sure)
+	;	call randBetweenVal,0,10
+	;	add edx,eax
+	;	cmp edx,0
+	;	jl base_X; base being the starting position assigned in the array spiderpos
+	;	cmp edx, SCRWIDTH
+	;	jg base_X
+	;	mov [esi +spiders.X], edx
+	;	jmp exit_X
+	;	
+	;	base_X:
+	;	mov edx,[edi]
+	;	mov [esi +spiders.X], edx
+	;	
+	;	exit_X:
+		
+	;	add edi,4
+	;	mov edx,[edi]
+	;	sub edx,5
+	;	call randBetweenVal,0,10
+	;	add edx,eax
+	;	cmp edx,0
+	;	jl base_Y; base being the starting position assigned in the array spiderpos
+	;	cmp edx, SCRHEIGHT
+	;	jg base_X
+	;	mov [esi +spiders.Y], edx
+	;	jmp exit_Y
+		
+	;	base_Y:
+	;	mov edx,[edi]
+	;	mov [esi +spiders.Y], edx
+	;	
+	;	exit_Y:
+	;	
+	;	add edi,4
+	;	mov [esi+spiders.ALIVE],1; set spider on alive
+	;	add esi, ebx; iterate to the next spider
+	;
+		mov edx,[edi]
+		mov [esi +spiders.X], edx
+		
+		add edi,4
+		mov edx,[edi]
+		mov [esi +spiders.Y], edx
+		add edi,4
+		mov [esi+spiders.ALIVE],1; set spider on alive
+		add esi, ebx; iterate to the next spider
+	
+	
+	loop spider_init_loop
+	ret
+ENDP initialize_spider_spider
+
+PROC initialize_spider_player; give the correct starting
+	arg @@Start_X:dword, @@Start_Y:dword
+	USES eax,ebx,esi
+	mov eax, [@@Start_X]
+	mov ebx, [@@Start_Y]
+	USES eax,ebx,esi
+	mov esi, offset player
+	mov [esi+player.X],eax
+	mov [esi+player.Y],ebx
+	mov [esi +player.ALIVE],1
+	mov [esi+player.COL],1
+	ret
+ENDP initialize_spider_player
 PROC spidergame
 	ARG 	@@key:byte
 	USES 	eax, ebx,esi,edi	
-	mov esi, offset playerpos
+	mov esi, offset player
 ;	call spiderterrain;paint the canvas
 	spidergameloop:
 		call spiderterrain; activate if want to clear behind character
-		mov ecx,[esi]
-		mov ebx,[esi+4]
-		call drawplayer,ecx,ebx,1; draws new position
+		mov ecx,[esi+player.X]
+		mov ebx,[esi+player.Y]
+		call drawplayer,[esi+player.X],[esi+player.Y],[esi+player.COL]; draws new position
 		call victorydet
 		
 		push esi
@@ -608,10 +616,10 @@ PROC spidergame
 		
 		call spider;,ecx,ebx
 		call wait_VBLANK, 3
-		mov ah, 01h ; function 01h (check if key is pressed)
-		int 16h ; call keyboard BIOS
+		;mov ah, 01h ; function 01h (check if key is pressed)
+		;int 16h ; call keyboard BIOS
 		;
-		jz SHORT spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+		;jz SHORT spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 		mov ah, 00h ;get key from buffer (ascii code in al)
 		int 16h
 		
@@ -631,38 +639,38 @@ PROC spidergame
 	
 	UP:
 	;xor al,al
-	mov ecx,[esi+4]
+	mov ecx,[esi+player.Y]
 	cmp ecx,1 ; checks borders
 	jl spidergameloop
 	
 	dec ecx ; moves position
-	mov [esi+4],ecx
+	mov [esi+player.Y],ecx
 	jmp spidergameloop ;returns to wait for keypress
 	DOWN:
-	mov ecx,[esi+4]
+	mov ecx,[esi+player.Y]
 	cmp ecx, SCRHEIGHT-1
 	jge spidergameloop
 	inc ecx
-	mov [esi+4],ecx
+	mov [esi+player.Y],ecx
 	jmp spidergameloop
 	
 	LEFT:
 	;xor al,al
-	mov ecx, [esi]
+	mov ecx, [esi+player.X]
 	cmp ecx,1
 	jl spidergameloop
 	
 	dec ecx
-	mov [esi],ecx
+	mov [esi+player.X],ecx
 	jmp spidergameloop
 	
 	RIGHT:
 	;xor al,al
-	mov ecx,[esi] 
+	mov ecx,[esi+player.X]
 	cmp ecx, SCRWIDTH-1
 	jge spidergameloop
 	inc ecx
-	mov [esi],ecx
+	mov [esi+player.X],ecx
 	jmp spidergameloop
 	exit:
 	call terminateProcess
@@ -732,14 +740,33 @@ ENDS BULLET
 DATASEG
 
 	msg	db "Hello User! Welcome to the spider game, press any button to continue.", 13, 10, '$'
+	
 	palette		db 768 dup (?)
+	player		PLAYER		1		dup(< ,,,>)
+	playeramount dd 1;both this and the size shouldnt matter, atleast not how the procedures are set up now
+	playersize dd 16;
+	
+	
 	playerpos dd 100,100; stores position of player
+	
+	
+	
+	spiders 	SPIDER		9		dup	(<,,,,,>)
 	spideramount dd 9; stores amount of spiders
-	spiderpos dd 0,0,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90,10; contains the x followed by y positions of each spider
+	spidersize dd 24
+	
+	
+	
+	spiderpos dd 0,0,10,10,30,30,40,40,50,50,60,60,70,70,80,80,90,90; contains the x followed by y positions of each spider
+	
 	safezone dd 150,170,90,110 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
+	
 	victory db "you won!", 13, 10, '$'
+	
 	lossmessage db "you lost!", 13, 10, '$'
+	
 	randSeed		dd			2003630
+	
 ; -------------------------------------------------------------------
 ; STACK
 ; -------------------------------------------------------------------
