@@ -516,17 +516,12 @@ PROC inputFromPlayer
 	
 	;@@notright:
 	
-	;mov ah, 02h
-	;xor edx, edx
-	;mov dl, al
-	;int 21h
-	
 	@@notpressed:
 	
 	mov esi, [@@PtrBullets]
 	
 	cmp [esi + BULLET.active], 0
-	jg SHORT MouseNC
+	jg  MouseNC
 	
 	xor ecx, ecx
 	xor edx, edx
@@ -535,48 +530,75 @@ PROC inputFromPlayer
 	int  33h        ; -> BX CX DX
 	
 	test ebx, 1      ; check left mouse click
-	jz SHORT MouseNC		; zero if no click
+	jz MouseNC		; zero if no click
 	shr ecx, 1
-	
-	;call print, ecx
-	;call print, edx
 	
 	;calculating normalized speed
 	
 	sub ecx, [edi + TANK.X];delta x
+	mov eax, [edi + TANK.W]
+	shr eax, 1				; Tank center
+	sub ecx, eax
+	
 	sub edx, [edi + TANK.Y];delta y
+	mov eax, [edi + TANK.H]
+	shr eax, 1				; Tank center
+	sub edx, eax
+	
+	cmp edx, 0	;calculating abs val of dx (delta y)
+	jge PosD
+	neg edx
+	push -1
+	jmp nextNegD
+	PosD:
+	push 1
+	
+	nextNegD:
 	
 	push edx
 	
-	mov eax, ecx
-	
 	cmp ecx, 0	;calculating abs val of cx (delta x)
-	jge notNegC
+	jge PosC
 	neg ecx
-	notNegC:
+	push -1
+	jmp nextNegC
+	PosC:
+	push 1
 	
-	cmp edx, 0	;calculating abs val of dx (delta y)
-	jge notNegD
-	neg edx
-	notNegD:
+	nextNegC:
+	
+	mov eax, ecx
 	
 	add ecx, edx	;aproximation of mag of delta vec |x|+|y|
 	
-	shl eax, 3	;multiply by 8 before dividing to give magnitude of 8 to speed of bullet
+	shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+	
+	cmp ecx, 0	;protection against division by 0
+	je SHORT MouseNC
 	
 	xor edx, edx ; set EDX to zero
-	div ecx ; eax result, edx remainder (normalized x vel in ax) [need to be multiplied by val to get wanted amplitude before div]
+	div ecx ; eax result, edx remainder (A/k = a)
 	
-	mov [esi + BULLET.velX], 1;eax
+	pop edx
+	cmp edx, 0
+	jge XPositive
+	neg eax
+	XPositive:
+	
+	mov [esi + BULLET.velX], eax
 	
 	pop eax
 	
-	shl eax, 3	;multiply by 8 before dividing to give magnitude of 8 to speed of bullet
-	
 	xor edx, edx ; set EDX to zero
-	div ecx ; eax result, edx remainder (normalized y vel in ax) [need to be multiplied by val to get wanted amplitude before div]
+	div ecx ; eax result, edx remainder (B/k = b)
 	
-	mov [esi + BULLET.velY], 0;eax
+	pop edx
+	cmp edx, 0
+	jge YPositive
+	neg eax
+	YPositive:
+	
+	mov [esi + BULLET.velY], eax
 	
 	mov ebx, [edi + TANK.W]
 	shr ebx, 1		; divide by 2 to get middle of tank
