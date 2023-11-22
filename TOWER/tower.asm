@@ -221,7 +221,7 @@ PROC towerterrain
 	;call initialize_bricks
 	call drawRectangle,eax,0,ebx,SCRHEIGHT,16
 	call initialize_bricks
-	call drawbricks
+	;call drawbricks
 	ret
 ENDP towerterrain
 
@@ -235,16 +235,16 @@ ENDP setuptower
 
 
 PROC drawDot
-	ARG x:word, y:word, col:byte;,y:word,
-	USES eax,edx,esi
-	mov EDI, VMEMADR 
-	movzx esi, [x];haalt de x-positie
-	movzx eax,[y] ; haalt de y pos
+	ARG x:dword, y:dword, col:dword;,y:word,
+	USES eax, edi, esi, ebx, edx
+	mov edi, VMEMADR 
+	mov esi, [x];haalt de x-positie
+	mov eax,[y] ; haalt de y pos
 	mov ebx, SCRWIDTH
 	mul ebx
 	add esi, eax
-	mov AL, [col]
-	mov[EDI+esi],AL
+	mov eax, [col]
+	mov[edi + esi], al
 	ret
 ENDP drawDot
 
@@ -353,11 +353,11 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	push ecx
 	mov ecx,6
 	brick_hor_loop:
-	mov [eax+bricks.X_0], esi
+	mov [eax+BRICK.X_0], esi
 	add esi,8
-	mov [eax+bricks.W],8
-	mov [eax+bricks.H],6
-	mov [eax+bricks.Y_0],edx
+	mov [eax+BRICK.W],8
+	mov [eax+BRICK.H],6
+	mov [eax+BRICK.Y_0],edx
 	add eax, 24; 24 is bricksize
 	
 	
@@ -380,7 +380,7 @@ PROC drawbricks
 	;cmp eax,1
 	;jl check_return
 	;call randBetweenVal,1,14
-	call drawRectangle,[esi+bricks.X_0],[esi+bricks.Y_0],[esi+bricks.W],[esi+bricks.H],1
+	call drawRectangle,[esi+BRICK.X_0],[esi+BRICK.Y_0],[esi+BRICK.W],[esi+BRICK.H],1
 	;check_return:
 	add esi, edx
 	;pop ecx
@@ -392,10 +392,10 @@ PROC initialize_tower_player; give the correct starting
 	mov eax, [playerspawn]
 	mov ebx, [playerspawn+4]
 	mov esi, offset player
-	mov [esi+player.X],eax
-	mov [esi+player.Y],ebx
-	mov [esi +player.ALIVE],1
-	mov [esi+player.COL],1
+	mov [esi+PLAYER.X],eax
+	mov [esi+PLAYER.Y],ebx
+	mov [esi +PLAYER.ALIVE],1
+	mov [esi+PLAYER.COL],1
 	ret
 ENDP initialize_tower_player
 PROC lowertower
@@ -415,15 +415,16 @@ ENDP lowertower
 
 PROC towergame
 	ARG 	@@key:byte
-	USES 	eax, ebx,esi,edi	
+	USES 	eax,ecx,edx, ebx,esi,edi	
 	mov esi, offset player
 ;	call spiderterrain;paint the canvas
+	mov edi, offset safezone
 	xor edx,edx
 	towergameloop:
 		call towerterrain; activate if want to clear behind character
-		mov ecx,[esi+player.X]
-		mov ebx,[esi+player.Y]
-		call drawplayer,[esi+player.X],[esi+player.Y],[esi+player.COL]; draws new position
+		mov ecx,[esi+PLAYER.X]
+		mov ebx,[esi+PLAYER.Y]
+		call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
 		call victorydet
 		
 		call wait_VBLANK, 3
@@ -458,38 +459,46 @@ PROC towergame
 	
 	UP:
 	;xor al,al
-	mov ecx,[esi+player.Y]
+	mov ecx,[esi+PLAYER.Y]
 	cmp ecx,1 ; checks borders
 	jl towergameloop
 	
 	dec ecx ; moves position
-	mov [esi+player.Y],ecx
+	mov [esi+PLAYER.Y],ecx
 	jmp towergameloop ;returns to wait for keypress
 	DOWN:
-	mov ecx,[esi+player.Y]
+	mov ecx,[esi+PLAYER.Y]
 	cmp ecx, SCRHEIGHT-1
 	jge towergameloop
 	inc ecx
-	mov [esi+player.Y],ecx
+	mov [esi+PLAYER.Y],ecx
 	jmp towergameloop
 	
 	LEFT:
 	;xor al,al
-	mov ecx, [esi+player.X]
-	cmp ecx,1
+	mov ecx, [esi+PLAYER.X]
+	push eax
+	mov eax, [edi]
+	inc eax
+	cmp ecx, eax
+	pop eax
 	jl towergameloop
 	
 	dec ecx
-	mov [esi+player.X],ecx
+	mov [esi+PLAYER.X],ecx
 	jmp towergameloop
 	
 	RIGHT:
 	;xor al,al
-	mov ecx,[esi+player.X]
-	cmp ecx, SCRWIDTH-1
+	mov ecx,[esi+PLAYER.X]
+	push eax
+	mov eax, [edi+4]
+	dec eax
+	cmp ecx, eax
+	pop eax
 	jge towergameloop
 	inc ecx
-	mov [esi+player.X],ecx
+	mov [esi+PLAYER.X],ecx
 	jmp towergameloop
 	exit:
 	call terminateProcess
