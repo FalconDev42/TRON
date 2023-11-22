@@ -218,19 +218,17 @@ PROC towerterrain
 	mov eax,[esi+4];takes largest x-valkue
 	mov ebx, SCRWIDTH
 	sub ebx,eax
+	;call initialize_bricks
 	call drawRectangle,eax,0,ebx,SCRHEIGHT,16
+	call initialize_bricks
+	call drawbricks
 	ret
 ENDP towerterrain
 
 PROC setuptower
 	call setVideoMode,13h
 	call initialize_tower_player,160,200
-	call towerterrain
-	
 	call towergame,001Bh
-	; in this need to implement time system, that or in the keystrojke section
-	
-
 	ret
 ENDP setuptower
 
@@ -334,30 +332,60 @@ PROC drawplayer; will be drawing the player as a cross similar to '+'
 
     ret
 ENDP drawplayer
-PROC initialize_bricks
+PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
 	USES eax,ebx,ecx,edx,edi,esi
 	mov eax, offset bricks
 	mov ebx, offset safezone
 	mov ecx, [brickamount]
-	mov edx, [bricksize]
-	brickloop:
+	;mov edx, [bricksize]; doint it statically rn, to save edx and headache
+	; need to find the width, height is set to 6 for the moment being
+	
+	
+	
+	
+	mov edx, [ebx+12]
+	inc edx; add one so no overlap with safezone
+	
+	mov ecx, 3; 6x3 layer of bricks so need a loop
+	brick_vert_loop:
+	
 	mov esi, [ebx]
-	add esi,4
-	mov [eax+bricks.X], esi
+	push ecx
+	mov ecx,6
+	brick_hor_loop:
+	mov [eax+bricks.X_0], esi
+	add esi,8
+	mov [eax+bricks.W],8
+	mov [eax+bricks.H],6
+	mov [eax+bricks.Y_0],edx
+	add eax, 24; 24 is bricksize
 	
 	
 	
 	
-	
-	loop brickloop
-	
-	
-	
-	
-	
-	
+	loop brick_hor_loop
+	add edx,7; increase height by 6+1 so no overlap
+	pop ecx
+	loop brick_vert_loop
 	ret
 ENDP initialize_bricks
+PROC drawbricks
+	USES eax,ebx,ecx,edx,edi,esi
+	mov esi, offset bricks
+	mov ecx, [brickamount]
+	mov edx, [bricksize]
+	drawloop:
+	;push ecx
+	;mov eax, [esi+bricks.ALIVE]
+	;cmp eax,1
+	;jl check_return
+	;call randBetweenVal,1,14
+	call drawRectangle,[esi+bricks.X_0],[esi+bricks.Y_0],[esi+bricks.W],[esi+bricks.H],1
+	;check_return:
+	add esi, edx
+	;pop ecx
+	loop drawloop
+ENDP drawbricks		
 
 PROC initialize_tower_player; give the correct starting
 	USES eax,ebx,esi
@@ -504,8 +532,10 @@ start:
 
 ; if add spider as struct: only need 2 pieces of info on spider, namely position, in x and y, and if alive doesnt matter=> insta respawn at start position spider
 STRUC BRICK
-	X dd 0
-	Y dd 0
+	X_0 dd 0
+	Y_0 dd 0
+	W dd 0
+	H dd 6
 	ALIVE dd 1; 1 will be for alive, 0 for dead
 	COL dd 1
 ENDS
@@ -543,8 +573,8 @@ DATASEG
 	
 	bricks		BRICK	18		dup(< ,,,>)
 	brickamount dd 18
-	bricksize dd 16
-	
+	bricksize dd 24
+	;brickmatrix dd 136,41,142,41,148,41,154,41,160,41,
 	
 	
 	
