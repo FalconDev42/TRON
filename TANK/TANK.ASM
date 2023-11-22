@@ -867,6 +867,58 @@ PROC moveEntities
 	add edi, [BlockSize]
 	loop TanksColisionLoop
 	
+	mov ebx, [esi + TANK.Y]
+	add ebx, [esi + TANK.velY]
+	mov eax, [esi + TANK.X]
+	add eax, [esi + TANK.velX]
+	
+	call colision, 0, 0, SCRWIDTH, SCRHEIGHT, eax, ebx, [esi + TANK.W], [esi + TANK.H], 0
+	xor eax, 0Fh
+	
+	cmp eax, 0
+	je SHORT NoColisionWithBoundary
+		cmp [esi + TANK.velX], 0
+		je speedIsVertB
+		jl speedXIsNegB
+		;VelX is pos.
+		mov eax, SCRWIDTH
+		sub eax, [esi + TANK.W]
+		dec eax
+		
+		mov [esi + TANK.X], eax
+		
+		jmp SetVelZeroB
+		
+		speedXIsNegB:
+		;VelX is neg
+		mov [esi + TANK.X], 1
+		
+		jmp SetVelZeroB
+		
+		speedIsVertB:
+		cmp [esi + TANK.velY], 0
+		je SetVelZeroB
+		jl speedYIsNegB
+		; VelY is pos
+		mov eax, SCRHEIGHT
+		sub eax, [esi + TANK.H]
+		dec eax
+		
+		mov [esi + TANK.Y], eax
+		
+		jmp SetVelZeroB
+		
+		speedYIsNegB:
+		;VelY is neg
+		mov [esi + TANK.Y], 1
+		
+		SetVelZeroB:
+	
+		mov [esi + TANK.velX], 0
+		mov [esi + TANK.velY], 0
+	
+	NoColisionWithBoundary:
+	
 	mov eax, [esi + TANK.X]
 	add eax, [esi + TANK.velX]
 	mov [esi + TANK.X], eax
@@ -897,7 +949,7 @@ PROC moveEntities
 	
 	BulletsColisionLoop:
 	cmp [esi + BULLET.active], 1
-	jl SHORT NoCalcBulletColision
+	jl NoCalcBulletColision
 	
 	mov eax, [esi + BULLET.X]
 	add eax, [esi + BULLET.velX]
@@ -910,66 +962,80 @@ PROC moveEntities
 	;call print, eax
 	cmp eax, 0
 	je SHORT NoBulletColisionWithBlock
-		; cmp [esi + BULLET.velX], 0
-		; je speedBulletIsVert
-		; jl BulletSpeedXIsNeg
-		; ;VelX is pos.
-		; mov eax, [edi + BLOCK.X]
-		; ;mov ebx, 
-		; sub eax, [esi + BULLET.W]
-		; dec eax
+		mov eax, [edi + BLOCK.X]
+		cmp eax, [esi + BULLET.X]
+		jge NegVelXBullet
 		
-		; mov [esi + BULLET.X], eax
+		add eax, [edi + BLOCK.W]
+		cmp eax, [esi + BULLET.X]
+		jle NegVelXBullet
 		
-		; jmp SetVelZero
 		
-		; BulletSpeedXIsNeg:
-		; ;VelX is neg
-		; mov eax, [edi + BLOCK.X]
-		; add eax, [edi + BLOCK.W]
-		; inc eax
+		mov eax, [edi + BLOCK.Y]
+		cmp eax, [esi + BULLET.Y]
+		jge NegVelYBullet
 		
-		; mov [esi + BULLET.X], eax
+		add eax, [edi + BLOCK.H]
+		cmp eax, [esi + BULLET.Y]
+		jle NegVelYBullet
 		
-		; jmp SetVelZero
+		NegVelXBullet:
+		mov ebx, [esi + BULLET.velX]
+		neg ebx
+		mov [esi + BULLET.velX], ebx
+		jmp NoBulletColisionWithBlock
 		
-		; speedBulletIsVert:
-		; cmp [esi + BULLET.velY], 0
-		; je SetVelZero
-		; jl speedYIsNeg
-		
-		; mov eax, [edi + BLOCK.Y]
-		; sub eax, [esi + BULLET.H]
-		; dec eax
-		
-		; mov [esi + BULLET.Y], eax
-		
-		; jmp SetVelZero
-		
-		; speedYIsNeg:
-		; ;VelY is neg
-		; mov eax, [edi + BLOCK.Y]
-		; add eax, [edi + BLOCK.H]
-		; inc eax
-		
-		; mov [esi + BULLET.Y], eax
-		
-		; SetVelZero:
-	
-		mov eax, [esi + BULLET.velX]
-		neg eax
-		mov [esi + BULLET.velX], eax
-		
-		mov eax, [esi + BULLET.velY]
-		neg eax
-		mov [esi + BULLET.velY], eax
+		NegVelYBullet:
+		mov ebx, [esi + BULLET.velY]
+		neg ebx
+		mov [esi + BULLET.velY], ebx
 		
 	NoBulletColisionWithBlock:
 	
 	add edi, [BlockSize]
 	loop BulletsColisionLoop
 	
-	NoCalcBulletColision:
+	mov eax, [esi + BULLET.X]
+	add eax, [esi + BULLET.velX]		;calc future position
+
+	mov ebx, [esi + BULLET.Y]
+	add ebx, [esi + BULLET.velY]
+	
+	call colision, 0, 0, SCRWIDTH, SCRHEIGHT, eax, ebx, [esi + BULLET.W], [esi + BULLET.H], 0
+	xor eax, 0Fh
+	
+	cmp eax, 0
+	je SHORT NoBulletColisionWithBoundary
+		cmp ebx, [esi + BULLET.H]		;ebx still contains Y future
+		jl NegVelYBulletBoundary
+		mov eax, SCRHEIGHT
+		sub eax, [esi + BULLET.H]
+		cmp ebx, eax
+		jg NegVelYBulletBoundary
+		
+		mov ebx, [esi + BULLET.X]
+		add ebx, [esi + BULLET.velX]
+		
+		cmp ebx, [esi + BULLET.W]
+		jl NegVelXBulletBoundary
+		
+		mov eax, SCRWIDTH
+		sub eax, [esi + BULLET.W]
+		cmp ebx, eax
+		jg NegVelXBulletBoundary
+		
+		NegVelXBulletBoundary:
+		mov ebx, [esi + BULLET.velX]
+		neg ebx
+		mov [esi + BULLET.velX], ebx
+		jmp NoBulletColisionWithBoundary
+		
+		NegVelYBulletBoundary:
+		mov ebx, [esi + BULLET.velY]
+		neg ebx
+		mov [esi + BULLET.velY], ebx
+	
+	NoBulletColisionWithBoundary:
 	
 	mov eax, [esi + BULLET.X]
 	add eax, [esi + BULLET.velX]
@@ -978,6 +1044,9 @@ PROC moveEntities
 	mov eax, [esi + BULLET.Y]
 	add eax, [esi + BULLET.velY]
 	mov [esi + BULLET.Y], eax
+	
+	
+	NoCalcBulletColision:
 	
 	mov edi, [@@PtrBlocks]
 	mov ecx, [TotalOfBlocks]
