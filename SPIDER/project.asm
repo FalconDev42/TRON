@@ -773,3 +773,6 @@ DATASEG
 STACK 100h
 
 END start
+
+; 12 is colorcode for red
+; 10 voor groen
