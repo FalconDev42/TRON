@@ -476,7 +476,7 @@ PROC drawFilledRectangle
 	ret
 ENDP drawFilledRectangle
 
-;modifies the speed of the tank (if needed) given the keyboard input zqsd
+;modifies the speed of the ennemy tanks
 ;Initiates a bullet if the mouse is clicked
 PROC inputFromPlayer
 	ARG		@@PtrPlayerTank:dword, @@PtrBullets:dword
@@ -495,18 +495,21 @@ PROC inputFromPlayer
 	jne @@notup
 	mov [edi + TANK.velX], 0
 	mov [edi + TANK.velY], -1
+	jmp @@notpressed
 	
 	@@notup:
 	cmp al, 'q' ; left
 	jne @@notleft
 	mov [edi + TANK.velX], -1
 	mov [edi + TANK.velY], 0
+	jmp @@notpressed
 	
 	@@notleft:
 	cmp al, 's' ; down
 	jne @@notdown
 	mov [edi + TANK.velX], 0
 	mov [edi + TANK.velY], 1
+	jmp @@notpressed
 	
 	@@notdown:
 	cmp al, 'd' ; right
@@ -1201,6 +1204,27 @@ PROC show
 	ret
 ENDP show
 
+PROC endConditionTank
+	ARG 	@@PtrTanks:dword
+	USES 	edi, ebx, ecx
+	; returns a value in eax; test if eax = 10000(bin) then player wins, if eax < 10000(bin) ennemies win
+	
+	mov edi, [@@PtrTanks]
+	mov ebx, [TankSize]
+	mov ecx, [TotalOfTanks]
+	
+	xor eax, eax
+	
+	TanksAliveTestLoop:
+	or eax, [edi + TANK.alive]
+	shl eax, 1
+	
+	add edi, ebx
+	loop TanksAliveTestLoop
+	
+	ret
+ENDP endConditionTank
+
 PROC waitForSpecificKeystroke
 	ARG 	@@key:byte
 	USES 	eax
@@ -1217,7 +1241,6 @@ ENDP waitForSpecificKeystroke
 ; Terminate the program.
 PROC terminateProcess
 	USES eax
-	call setVideoMode, 03h
 	mov	ax,04C00h
 	int 21h
 	ret
@@ -1276,7 +1299,7 @@ start:
 	
 	mov ebx, offset Bullets
 	
-	mov ecx, 1000
+	mov ecx, 5000
 	drawLoop:
 	
 	call selectiveBackgroundFiller, edi, ebx
@@ -1285,19 +1308,35 @@ start:
 	
 	call moveEntities, edi, edx, ebx
 	
-	
-	
 	call show, edi, ebx, edx
-	
-	
-	;call	drawRectangle, ecx, 50, 60, 90, 32
 	
 	call	wait_VBLANK, 1
 	
-	;call print, edx
+	call endConditionTank, edi
+	
+	cmp eax, 32
+	je EndTankGamePlayerWin
+	jl EndTankGamePlayerLose
 	
 	loop drawLoop
 	
+	EndTankGamePlayerWin:
+	call setVideoMode, 03h	;back to text
+	
+	mov ah, 09h
+	mov edx, offset WinMsg
+	int 21h
+	
+	jmp SHORT EndTankGame
+	
+	EndTankGamePlayerLose:
+	call setVideoMode, 03h	;back to text
+	
+	mov ah, 09h
+	mov edx, offset LoseMsg
+	int 21h
+	
+	EndTankGame:
 	;call showPalette
 
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
@@ -1355,6 +1394,9 @@ TotalOfBullets	dd			5
 Blocks			BLOCK		4	dup	(<,,,,>)
 BlockSize	 	dd 			20
 TotalOfBlocks	dd			4
+
+WinMsg			db 	"You WON!", 13, 10, '$'
+LoseMsg			db 	"You LOST", 13, 10, '$'
 
 ; -------------------------------------------------------------------
 ; STACK
