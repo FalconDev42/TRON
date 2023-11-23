@@ -103,7 +103,7 @@ PROC spider
                     ; Move to the next position in the array
 		call randBetweenVal, 0, 10 ; find random value between 0 and 10
 		
-		cmp eax, 7; can change value here to change percentage of true or random moves
+		cmp eax, 6; can change value here to change percentage of true or random moves
 		jl truemove_x
 		jge randommove_x
 		
@@ -113,7 +113,7 @@ PROC spider
         mov edx, [esi + SPIDER.Y]
         
 		call randBetweenVal, 0, 10
-		cmp eax, 7; can change value here to change percentage of true or random moves
+		cmp eax, 6; can change value here to change percentage of true or random moves
 		jl truemove_y
 		jge randommove_y
 		
@@ -134,8 +134,8 @@ PROC spider
 		jmp RETURN_X_CHECK
 		
 		randommove_x:
-		call randBetweenVal, 0, 2
-		cmp eax, 1
+		call randBetweenVal, 0, 4
+		cmp eax, 2
 		jl movespiderLEFT
 		jge movespiderRIGHT
 		
@@ -146,8 +146,8 @@ PROC spider
 		jmp RETURN_Y_CHECK
 		
 		randommove_y:
-		call randBetweenVal, 0, 2
-		cmp eax,1
+		call randBetweenVal, 0, 4
+		cmp eax,2
 		jl movespiderUP
 		jge movespiderDOWN
 		
@@ -422,14 +422,14 @@ PROC victorydet; checks the conditions for the win, sure its manual but seems ch
 	USES eax,edi,esi
 	mov edi, offset player
 	mov esi, offset safezone
-	mov eax,[edi+player.X]
+	mov eax,[edi+PLAYER.X]
 	cmp eax,[esi];checks first border for x
 	jl notSafe
 	add esi,4
 	cmp eax,[esi];checks second border for x
 	jg notSafe
 	add esi,4
-	mov eax,[edi+player.Y]
+	mov eax,[edi+PLAYER.Y]
 	cmp eax,[esi];checks first border for y
 	jl notSafe
 	add esi,4
@@ -722,8 +722,8 @@ STRUC SPIDER
 ENDS SPIDER
 
 STRUC PLAYER
-	X dd 20
-	Y dd 10
+	X dd 100
+	Y dd 100
 	ALIVE dd 1
 	COL dd 1
 ENDS PLAYER
@@ -759,7 +759,7 @@ DATASEG
 	
 	
 	
-	spiderpos dd 0,0,10,10,30,30,40,40,50,50,60,60,70,70,80,80,90,90; contains the x followed by y positions of each spider
+	spiderpos dd 10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90; contains the x followed by y positions of each spider
 	
 	safezone dd 150,170,90,110 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
