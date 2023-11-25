@@ -88,7 +88,7 @@ PROC drawRectangle
 	ret
 ENDP drawRectangle
 	
-PROC spider
+PROC updatespider_bullet
     USES eax, ebx, esi, edx,ecx,edi
     mov ebx, offset player;gets player position
     mov ecx, [spideramount]; counter for the amount of spiders we will iterate over
@@ -115,10 +115,8 @@ PROC spider
 		jge randommove_y
 		
 		RETURN_Y_CHECK:
-		;add esi,4 
-        call drawspider, [esi + SPIDER.X], [esi + SPIDER.Y], 1  ; Color 1 (red); Call drawDot to draw the spider
+        ;call drawspider, [esi + SPIDER.X], [esi + SPIDER.Y], 1  ; Color 1 (red); Call drawDot to draw the spider
         
-        ; Decrease the loop counter and check if we've processed all spiders
         add esi, edi
 		loop drawloop
 		
@@ -169,9 +167,41 @@ PROC spider
 		jmp RETURN_Y_CHECK
 		
 		exitspider:
-		
-    ret
-ENDP spider
+	;bullet
+	mov esi, offset bullet
+	mov eax , [esi+BULLET.active]
+	cmp eax,1
+	jl exitbullet
+    mov eax, [esi+BULLET.X]
+	add eax, [esi+BULLET.velX]
+	
+	cmp eax,0
+	jl bullet_leaves
+	cmp eax,SCRWIDTH
+	jg bullet_leaves
+	
+	mov [esi+BULLET.X],eax
+	
+	mov eax, [esi+BULLET.Y]
+	add eax, [esi+BULLET.velY]
+	
+	cmp eax,0
+	jl SHORT bullet_leaves
+	cmp eax,SCRHEIGHT
+	jg SHORT bullet_leaves
+	
+	mov [esi+BULLET.Y],eax
+	jmp SHORT exitbullet
+	
+	
+	bullet_leaves:
+	mov [esi+BULLET.active],0
+	
+	
+	
+	exitbullet:
+	ret
+ENDP updatespider_bullet
 
 PROC randBetweenVal
 	ARG @@min:dword, @@max:dword
@@ -590,15 +620,8 @@ PROC spidergame
 		call spiderterrain; activate if want to clear behind character
 		mov ecx,[esi+PLAYER.X]
 		mov ebx,[esi+PLAYER.Y]
-		call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+		call DrawEntities
 		call victorydet
-		mov edx,[edi+BULLET.active]
-		cmp edx,1
-		jl bullet_off
-		
-		
-		bullet_off:
-		
 		
 		push esi
 		xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
@@ -608,7 +631,7 @@ PROC spidergame
 		jge exit; make a loss screen from this
 		pop esi
 		
-		call spider;,ecx,ebx
+		;call updatespider_bullet
 		call wait_VBLANK, 3
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
@@ -718,12 +741,13 @@ PROC spidergame
 		mov [edi + BULLET.active], 1
 		
 		MouseNC:
+		call updatespider_bullet
 	jne	spidergameloop ; if doesnt find anything restart
 	
 	UP:
 	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx,1 ; checks borders
+	cmp ecx,2 ; checks borders
 	jl re_spidergameloop
 	
 	dec ecx ; moves position
@@ -731,7 +755,7 @@ PROC spidergame
 	jmp re_spidergameloop ;returns to wait for keypress
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx, SCRHEIGHT-1
+	cmp ecx, SCRHEIGHT-2
 	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
@@ -740,7 +764,7 @@ PROC spidergame
 	LEFT:
 	;xor al,al
 	mov ecx, [esi+PLAYER.X]
-	cmp ecx,1
+	cmp ecx,2
 	jl re_spidergameloop
 	
 	dec ecx
@@ -750,7 +774,7 @@ PROC spidergame
 	RIGHT:
 	;xor al,al
 	mov ecx,[esi+PLAYER.X]
-	cmp ecx, SCRWIDTH-1
+	cmp ecx, SCRWIDTH-2
 	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.X],ecx
@@ -759,6 +783,26 @@ PROC spidergame
 	call terminateProcess
 	ret
 ENDP spidergame
+
+PROC DrawEntities
+	USES eax,esi,ecx,edx
+	mov esi, offset spiders
+	mov ecx, [spideramount]
+	mov edx, [spidersize]
+	spiderdrawloop:
+	call drawspider, [esi + SPIDER.X], [esi + SPIDER.Y], 12  ; Color 1 (red); Call drawDot to draw the spider
+	add esi, edx
+	loop spiderdrawloop
+	mov esi, offset player
+	call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+	mov esi, offset bullet
+	mov eax, [esi+BULLET.active]
+	cmp eax, 1
+	jl bullet_inactive
+	call drawDot, [esi+BULLET.X],[esi+BULLET.Y],1
+	bullet_inactive:
+	ret
+ENDP DrawEntities
 start:
      sti            ; set The Interrupt Flag => enable interrupts
      cld            ; clear The Direction Flag
