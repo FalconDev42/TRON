@@ -283,7 +283,7 @@ PROC collisiondet; will be checking in a three by three area around the players 
     xor edi, edi ; Clear index register for spider loop
 	spiderloop:
 	;xor eax,eax
-    mov edi, [edx+spiders.X] ; Get spider x
+    mov edi, [edx+SPIDER.X] ; Get spider x
     pop eax
 	cmp eax,1
 	jge spiderskip_x
@@ -321,7 +321,7 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	push eax;pushes it back to stack
 	xor eax,eax
 	mov eax,edi
-	mov edi, [edx+spiders.Y]
+	mov edi, [edx+SPIDER.Y]
 	jge spiderskip_y
     cmp edi, ebx ; Check player y, for some reason if i dont add this it doesnt collision doesnt trigger using the other checks if plpayer doesnt move, if they do move and collide in movement it does, dont know why that happens isnt logical
     je sameaxis_y
