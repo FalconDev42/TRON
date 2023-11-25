@@ -685,7 +685,12 @@ PROC TankAI
 	mov ebx, TANKSPEED			; speed of tank
 	add edx, eax				; distance player -> tank
 	
+	push eax
 	
+	call randBetweenVal, 10, edx
+	cmp eax, 90					; chance that AI Tank moves towards player increases as the player apprauches the player
+	pop eax
+	jg SHORT AITankNoMove
 	
 	cmp edx, 60
 	jg SHORT AIAvoidPlayer		; if distance to player is less than 60 keep moving in same direction
@@ -750,6 +755,8 @@ PROC TankAI
 	mov [edi + TANK.velY], ebx
 	jmp ShootBullet
 	
+	AITankNoMove:
+	add esp, 8
 	
 	ShootBullet:
 	
