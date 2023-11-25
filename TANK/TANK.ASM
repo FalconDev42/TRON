@@ -23,6 +23,7 @@ ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
+TANKSPEED EQU 1	; screen height
 
 RAND_A = 1103515245
 RAND_C = 12345
@@ -494,13 +495,13 @@ PROC inputFromPlayer
 	cmp al, 'z' ; up
 	jne @@notup
 	mov [edi + TANK.velX], 0
-	mov [edi + TANK.velY], -1
+	mov [edi + TANK.velY], -TANKSPEED
 	jmp @@notpressed
 	
 	@@notup:
 	cmp al, 'q' ; left
 	jne @@notleft
-	mov [edi + TANK.velX], -1
+	mov [edi + TANK.velX], -TANKSPEED
 	mov [edi + TANK.velY], 0
 	jmp @@notpressed
 	
@@ -508,13 +509,13 @@ PROC inputFromPlayer
 	cmp al, 's' ; down
 	jne @@notdown
 	mov [edi + TANK.velX], 0
-	mov [edi + TANK.velY], 1
+	mov [edi + TANK.velY], TANKSPEED
 	jmp @@notpressed
 	
 	@@notdown:
 	cmp al, 'd' ; right
 	jne @@notpressed
-	mov [edi + TANK.velX], 1
+	mov [edi + TANK.velX], TANKSPEED
 	mov [edi + TANK.velY], 0
 	
 	;@@notright:
@@ -634,6 +635,133 @@ PROC inputFromPlayer
 	
 	ret
 ENDP inputFromPlayer
+
+PROC TankAI
+	ARG		@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrTanks]
+	mov ecx, [TotalOfTanks]
+	
+	mov esi, edi ;Ptr to playerTank
+	
+	add edi, [TankSize]
+	dec ecx
+	
+	TanksAILoop:
+	cmp [edi + TANK.alive], 0
+	je AITankNotAlive
+	
+	; first check distance to playertank
+	; if distance less than 60 (Wtank + Wblock + buffer)
+	; then move away from player (sign change)
+	; else move towards tank (sign change)
+	; check if block is in the way, if so take other option that maximises the attitude (X->Y or Y->X)
+	; shoot if distance less than 60 and no block in the way
+	; if no direct way to see player shoot halfway distance in biggest delta and shoot boundary
+	
+	mov eax, [edi + TANK.X]	; AI tank
+	sub eax, [esi + TANK.X] ; Player tank
+	
+	push 1
+	cmp eax, 0
+	jge DeltaTanksPosX	; abs val
+	neg eax
+	add esp, 4
+	push -1				; remember in wich direction the tank should move
+	DeltaTanksPosX:
+	
+	mov edx, [edi + TANK.Y]	; AI tank
+	sub edx, [esi + TANK.Y] ; Player tank
+	
+	push 1
+	cmp edx, 0
+	jge DeltaTanksPosY	; abs val
+	neg edx
+	add esp, 4
+	push -1			; remember in wich direction the tank should move
+	DeltaTanksPosY:
+	
+	mov ebx, TANKSPEED			; speed of tank
+	add edx, eax				; distance player -> tank
+	
+	
+	
+	cmp edx, 60
+	jg SHORT AIAvoidPlayer		; if distance to player is less than 60 keep moving in same direction
+	
+	neg ebx
+	
+	AIAvoidPlayer:
+	
+	push ebx
+	
+	sub edx, eax
+	
+	cmp edx, eax
+	jg MoveInYAI
+	
+	mov ebx, [edi + TANK.velX]		; prevent AI from getting stuck
+	xor ebx, [edi + TANK.velY]
+	cmp ebx, 0
+	je MoveInYAINoTest
+	
+	MoveInXAI:
+	; Delta in X is greater so move in X
+	add esp, 8
+	pop ebx
+	cmp ebx, 0
+	jg NegVelXAI
+	mov ebx, [esp - 12]
+	mov [edi + TANK.velX], ebx
+	mov [edi + TANK.velY], 0
+	jmp ShootBullet
+	
+	NegVelXAI:
+	mov ebx, [esp - 12]
+	neg ebx
+	mov [edi + TANK.velX], ebx
+	mov [edi + TANK.velY], 0
+	jmp ShootBullet
+	
+	MoveInYAI:
+	mov ebx, [edi + TANK.velX]		; prevent AI from getting stuck
+	xor ebx, [edi + TANK.velY]
+	cmp ebx, 0
+	je MoveInXAI
+	
+	MoveInYAINoTest:
+	; Delta in Y is greater so move in Y
+	add esp, 4
+	pop ebx
+	add esp, 4
+	cmp ebx, 0
+	jg NegVelYAI
+	
+	mov ebx, [esp - 12]
+	mov [edi + TANK.velX], 0
+	mov [edi + TANK.velY], ebx
+	jmp ShootBullet
+	
+	NegVelYAI:
+	mov ebx, [esp - 12]
+	neg ebx
+	mov [edi + TANK.velX], 0
+	mov [edi + TANK.velY], ebx
+	jmp ShootBullet
+	
+	
+	ShootBullet:
+	
+	AITankNotAlive:
+
+	add edi, [TankSize]
+	dec ecx
+	cmp ecx, 0
+	jg TanksAILoop
+	
+	ret
+ENDP TankAI
 
 PROC isInInterval
 	ARG		@@a:dword, @@z:dword, @@b:dword
@@ -790,7 +918,6 @@ PROC moveEntities
 	ARG		@@PtrTanks:dword, @@PtrBlocks:dword, @@PtrBullets:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
-	mov	edi, [@@PtrBlocks]
 	mov ecx, [TotalOfBlocks]
 	
 	;----------------------------------------------------------------------------------------------------
@@ -802,6 +929,8 @@ PROC moveEntities
 	
 	
 	SetTankCoor:
+	mov	edi, [@@PtrBlocks]
+	
 	cmp [esi + TANK.alive], 0
 	je TankNotAlive
 	mov ebx, [esi + TANK.Y]
@@ -922,6 +1051,40 @@ PROC moveEntities
 	
 	NoColisionWithBoundary:
 	
+	;---------------------------------------------------------------------------------------------
+	;Tank Tank colisionloop
+	;---------------------------------------------------------------------------------------------
+	
+	mov edi, [@@PtrTanks]
+	mov ecx, [TotalOfTanks]
+	
+	TankTanksColisionLoop:
+	cmp ecx, edx
+	je SHORT NoColisionWithTank ;same tank so no colision possible
+	
+	mov ebx, [esi + TANK.Y]
+	add ebx, [esi + TANK.velY]
+	
+	mov eax, [esi + TANK.X]
+	add eax, [esi + TANK.velX]
+
+	
+	;ARG			@@X1:dword, 	@@Y1:dword, 	@@W1:dword, 	 @@H1:dword, @@X2:dword, @@Y2:dword,@@W2:dword,@@H2:dword, @@BufferSpace:dword
+	call colision, [edi + TANK.X], [edi + TANK.Y], [edi + TANK.W], [edi + TANK.H], eax, ebx, [esi + TANK.W], [esi + TANK.H], 0
+	;call print, eax
+	
+	cmp eax, 0
+	je SHORT NoColisionWithTank
+		mov [esi + TANK.velX], 0
+		mov [esi + TANK.velY], 0
+	
+	NoColisionWithTank:
+	
+	add edi, [TankSize]
+	dec ecx
+	cmp ecx, 0
+	jg TankTanksColisionLoop
+	
 	mov eax, [esi + TANK.X]
 	add eax, [esi + TANK.velX]
 	mov [esi + TANK.X], eax
@@ -965,20 +1128,28 @@ PROC moveEntities
 	;call print, eax
 	cmp eax, 0
 	je SHORT NoBulletColisionWithBlock
+		inc [esi + BULLET.bounces]
+	
 		mov eax, [edi + BLOCK.X]
+		;sub eax, [esi + BULLET.W]
 		cmp eax, [esi + BULLET.X]
 		jge NegVelXBullet
 		
 		add eax, [edi + BLOCK.W]
+		;sub eax, [esi + BULLET.W]
+		;sub eax, [esi + BULLET.W]
 		cmp eax, [esi + BULLET.X]
 		jle NegVelXBullet
 		
 		
 		mov eax, [edi + BLOCK.Y]
+		;add eax, [esi + BULLET.H]
 		cmp eax, [esi + BULLET.Y]
 		jge NegVelYBullet
 		
 		add eax, [edi + BLOCK.H]
+		;sub eax, [esi + BULLET.H]
+		;sub eax, [esi + BULLET.H]
 		cmp eax, [esi + BULLET.Y]
 		jle NegVelYBullet
 		
@@ -1009,7 +1180,9 @@ PROC moveEntities
 	
 	cmp eax, 0
 	je SHORT NoBulletColisionWithBoundary
-		cmp ebx, [esi + BULLET.H]		;ebx still contains Y future
+		inc [esi + BULLET.bounces]
+	
+		cmp ebx, [esi + BULLET.H]		;ebx still contains Y future (compare top side of screen (0 + H))
 		jl NegVelYBulletBoundary
 		mov eax, SCRHEIGHT
 		sub eax, [esi + BULLET.H]
@@ -1048,6 +1221,10 @@ PROC moveEntities
 	add eax, [esi + BULLET.velY]
 	mov [esi + BULLET.Y], eax
 	
+	cmp [esi + BULLET.bounces], 6
+	jl NoCalcBulletColision
+	mov [esi + BULLET.bounces], 0
+	mov [esi + BULLET.active], 0
 	
 	NoCalcBulletColision:
 	
@@ -1287,7 +1464,6 @@ start:
 	call initiateTanks, edi
 	
 	
-	
 	NoMouse:
 	mov  ax, 0000h  ; reset mouse
 	int  33h        ; -> AX BX
@@ -1305,6 +1481,9 @@ start:
 	call selectiveBackgroundFiller, edi, ebx
 	
 	call inputFromPlayer, edi, ebx
+	
+				;@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
+	call TankAI, edi, ebx, edx
 	
 	call moveEntities, edi, edx, ebx
 	
@@ -1359,11 +1538,11 @@ STRUC BULLET
 	Y		dd 0
 	velX 	dd 0
 	velY 	dd 0
+	W		dd 3
+	H		dd 3
 	bounces	dd 0
 	active 	dd 0
 	col 	dd 30
-	W		dd 3
-	H		dd 3
 ENDS BULLET
 
 STRUC TANK
@@ -1371,10 +1550,10 @@ STRUC TANK
 	Y		dd 100
 	velX 	dd 0
 	velY 	dd 0
-	alive 	dd 1
-	col 	dd 1
 	W		dd 23
 	H		dd 20
+	alive 	dd 1
+	col 	dd 1
 ENDS TANK
 
 ; -------------------------------------------------------------------
