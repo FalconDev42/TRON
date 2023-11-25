@@ -95,13 +95,10 @@ PROC spider
     ;mov ecx, ecx    ; The counter for the loop
     mov esi, offset spiders
 	mov eax, 0
-	mov edi, [spidersize]; define so that we can run the collision checks
+	mov edi, [spidersize]
     drawloop:
-		
-        ; Get the x and y positions from spiderpos array
         mov edx, [esi + SPIDER.X]     ; X position
-                    ; Move to the next position in the array
-		call randBetweenVal, 0, 10 ; find random value between 0 and 10
+		call randBetweenVal, 0, 10 ; find random value between 0 and 10, to decide whether movement in x-axis random or not
 		
 		cmp eax, 6; can change value here to change percentage of true or random moves
 		jl truemove_x
@@ -231,6 +228,14 @@ ENDP spiderterrain
 
 PROC setupspider
 	call setVideoMode,13h
+	NoMouse:
+	mov  ax, 0000h  ; reset mouse
+	int  33h        ; -> AX BX
+	cmp  ax, 0FFFFh
+	jne  NoMouse
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	
 	call initialize_spider_player,100,100
 	call initialize_spider_spider
 	call spiderterrain
@@ -257,6 +262,22 @@ PROC drawDot
 	mov[edi + esi], al
 	ret
 ENDP drawDot
+
+
+PROC waitForSpecificKeystroke
+	ARG 	@@key:byte
+	USES 	eax
+
+	@@waitForKeystroke:
+		mov	ah,00h
+		int	16h
+		cmp	al,[@@key]
+	jne	@@waitForKeystroke
+
+	ret
+ENDP waitForSpecificKeystroke
+
+
 
 
 
@@ -342,7 +363,7 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	jmp collisiontest
     ; Move to the next spider
 	restartloop:
-    add edx, [spideramount]
+    add edx, [spidersize]
     dec ecx ; Decrease spider count
     jnz spiderloop ; Jump if not zero to continue checking collisions
 	;xor eax,eax
@@ -374,49 +395,6 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	getouttahere:
 	ret
 ENDP collisiondet
-
-	
-PROC collisiondet2; tried to make a smoother collision detection, for some reason it doesnt work, it should give a zero as long as nothing is collision detected and a 1 or more for each colision
-	ARG x_pos:dword,y_pos:dword; mode shows for what it is used, 1 for player-spider detection, 2 for spider-spider collsion
-	USES ebx, ecx, edx, edi, esi
-	xor eax,eax ; Initialize collision flag
-	;push eax
-	
-    ; Get spider count, spider and player positions
-    mov ecx, [spideramount]
-    mov edx, offset spiderpos
-    
-    ; Check for collisions
-    xor edi, edi 
-	spider2loop:
-	mov edi, [edx]; assign x of spider
-	mov esi, [x_pos]
-	mov ebx, [y_pos]
-	
-	sub esi,2
-	cmp esi,edi
-	jg exitcollisiondet2
-	add esi,4
-	cmp esi,edi
-	jl exitcollisiondet2
-	add edx,4
-	mov edi,[edx] ; assign y of spider
-	sub ebx,2
-	cmp ebx,edi
-	jg exitcollisiondet2
-	add ebx, 4
-	cmp ebx,edi
-	jl exitcollisiondet2
-	
-	inc eax
-	exitcollisiondet2:
-	add edx,4
-	loop spider2loop 
-	;exitcollisiondet2:
-	ret
-	
-ENDP collisiondet2
-
 
 PROC victorydet; checks the conditions for the win, sure its manual but seems cho to me tbh
 	USES eax,edi,esi
@@ -528,58 +506,64 @@ PROC initialize_spider_spider; will read from an array, and set semi random star
 	mov ecx, [spideramount]
 	mov ebx, [spidersize]
 	spider_init_loop:
-	;	mov edx,[edi]
-	;	sub edx,5; add this step because randbetweenval cant give negative(i think not sure)
-	;	call randBetweenVal,0,10
-	;	add edx,eax
-	;	cmp edx,0
-	;	jl base_X; base being the starting position assigned in the array spiderpos
-	;	cmp edx, SCRWIDTH
-	;	jg base_X
-	;	mov [esi +spiders.X], edx
-	;	jmp exit_X
-	;	
-	;	base_X:
-	;	mov edx,[edi]
-	;	mov [esi +spiders.X], edx
-	;	
-	;	exit_X:
+		mov edx,[edi]
+		sub edx,5; add this step because randbetweenval cant give negative(i think not sure)
+		call randBetweenVal,0,10
+		add edx,eax
+		cmp edx,0
+		jl base_X; base being the starting position assigned in the array spiderpos
+		cmp edx, SCRWIDTH
+		jg base_X
+		mov [esi +SPIDER.X], edx
+		jmp exit_X
 		
-	;	add edi,4
-	;	mov edx,[edi]
-	;	sub edx,5
-	;	call randBetweenVal,0,10
-	;	add edx,eax
-	;	cmp edx,0
-	;	jl base_Y; base being the starting position assigned in the array spiderpos
-	;	cmp edx, SCRHEIGHT
-	;	jg base_X
-	;	mov [esi +spiders.Y], edx
-	;	jmp exit_Y
+		base_X:
+		mov edx,[edi]
+		mov [esi +SPIDER.X], edx
 		
-	;	base_Y:
-	;	mov edx,[edi]
-	;	mov [esi +spiders.Y], edx
-	;	
-	;	exit_Y:
-	;	
-	;	add edi,4
-	;	mov [esi+spiders.ALIVE],1; set spider on alive
-	;	add esi, ebx; iterate to the next spider
-	;
+		exit_X:
+	
+		add edi,4
+		mov edx,[edi]
+		sub edx,5
+		call randBetweenVal,0,10
+		add edx,eax
+		cmp edx,0
+		jl base_Y; base being the starting position assigned in the array spiderpos
+		cmp edx, SCRHEIGHT
+		jg base_X
+		mov [esi +SPIDER.Y], edx
+		jmp exit_Y
+	
+		base_Y:
+		mov edx,[edi]
+		mov [esi +SPIDER.Y], edx
+		
+		exit_Y:
+		
+		add edi,4
+		mov [esi+SPIDER.ALIVE],1; set spider on alive
+		add esi, ebx; iterate to the next spider
+	
+	loop spider_init_loop
+	xor esi,esi
+	xor edi,edi
+	mov esi, offset spiders
+	mov edi, offset spiderpos
+	mov ecx, [spideramount]
+	set_spider_respawn:
 		mov edx, [edi]
-		mov [esi + SPIDER.X], edx
-		
+		mov [esi + SPIDER.RES_X], edx
+			
 		add edi, 4
 		mov edx, [edi]
-		mov [esi + SPIDER.Y], edx
+		mov [esi + SPIDER.RES_Y], edx
 		add edi,4
 		
 		mov [esi + SPIDER.ALIVE], 1; set spider on alive
 		add esi, ebx; iterate to the next spider
-	
-	
-	loop spider_init_loop
+
+	loop set_spider_respawn
 	ret
 ENDP initialize_spider_spider
 
@@ -600,6 +584,7 @@ PROC spidergame
 	ARG 	@@key:byte
 	USES 	eax, ebx,esi,edi	
 	mov esi, offset player
+	mov edi, offset bullet
 ;	call spiderterrain;paint the canvas
 	spidergameloop:
 		call spiderterrain; activate if want to clear behind character
@@ -607,26 +592,33 @@ PROC spidergame
 		mov ebx,[esi+PLAYER.Y]
 		call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
 		call victorydet
+		mov edx,[edi+BULLET.active]
+		cmp edx,1
+		jl bullet_off
+		
+		
+		bullet_off:
+		
 		
 		push esi
 		xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
 		call collisiondet,ecx,ebx,eax
 		;call drawDot,eax,eax,1;to debug
 		cmp eax,1
-		jge SHORT exit; make a loss screen from this
+		jge exit; make a loss screen from this
 		pop esi
 		
 		call spider;,ecx,ebx
 		call wait_VBLANK, 3
-		;mov ah, 01h ; function 01h (check if key is pressed)
-		;int 16h ; call keyboard BIOS
+		mov ah, 01h ; function 01h (check if key is pressed)
+		int 16h ; call keyboard BIOS
 		;
-		;jz SHORT spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+		jz SHORT spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 		mov ah, 00h ;get key from buffer (ascii code in al)
 		int 16h
 		
 		cmp	al,[@@key]; checks to see if we ditch program
-		je SHORT exit
+		je  exit
 		cmp al,122; inset code for (W,) Z want in azerty 
 		
 		je UP
@@ -636,44 +628,133 @@ PROC spidergame
 		je LEFT
 		cmp al,100; checks for D
 		je RIGHT
+		re_spidergameloop:
 		
+		mov edi, offset bullet
+	
+		cmp [edi + BULLET.active], 0
+		jg  MouseNC
+		
+		xor ecx, ecx
+		xor edx, edx
+		xor ebx,ebx
+		mov  ax, 0003h  ; get mouse position and buttonstatus
+		int  33h        ; -> BX CX DX
+		
+		test ebx, 1      ; check left mouse click
+		jz MouseNC		; zero if no click
+		shr ecx, 1
+		
+		;calculating normalized speed
+		
+		sub ecx, [esi + PLAYER.X];delta x
+		sub ecx, eax
+		
+		sub edx, [esi + PLAYER.Y];delta y
+		sub edx, eax
+		
+		cmp edx, 0	;calculating abs val of dx (delta y)
+		jge PosD
+		neg edx
+		push -1
+		jmp nextNegD
+		PosD:
+		push 1
+		
+		nextNegD:
+		
+		push edx
+		
+		cmp ecx, 0	;calculating abs val of cx (delta x)
+		jge PosC
+		neg ecx
+		push -1
+		jmp nextNegC
+		PosC:
+		push 1
+		
+		nextNegC:
+		
+		mov eax, ecx
+		
+		add ecx, edx	;aproximation of mag of delta vec |x|+|y|
+		
+		shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+		
+		cmp ecx, 0	;protection against division by 0
+		je SHORT MouseNC
+		
+		xor edx, edx ; set EDX to zero
+		div ecx ; eax result, edx remainder (A/k = a)
+		
+		pop edx
+		cmp edx, 0
+		jge XPositive
+		neg eax
+		XPositive:
+		
+		mov [edi + BULLET.velX], eax
+		
+		pop eax
+		
+		xor edx, edx ; set EDX to zero
+		div ecx ; eax result, edx remainder (B/k = b)
+		
+		pop edx
+		cmp edx, 0
+		jge YPositive
+		neg eax
+		YPositive:
+		
+		mov [edi + BULLET.velY], eax
+		
+		mov eax,[esi+PLAYER.X]
+		mov [edi + BULLET.X], 	eax	;first element in array is for player
+		
+		mov eax,[esi+PLAYER.Y]
+		mov [edi + BULLET.Y], eax		;first element in array is for player
+		
+		mov [edi + BULLET.bounces], 0
+		mov [edi + BULLET.active], 1
+		
+		MouseNC:
 	jne	spidergameloop ; if doesnt find anything restart
 	
 	UP:
 	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx,1 ; checks borders
-	jl spidergameloop
+	jl re_spidergameloop
 	
 	dec ecx ; moves position
 	mov [esi+PLAYER.Y],ecx
-	jmp spidergameloop ;returns to wait for keypress
+	jmp re_spidergameloop ;returns to wait for keypress
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx, SCRHEIGHT-1
-	jge spidergameloop
+	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
-	jmp spidergameloop
+	jmp re_spidergameloop
 	
 	LEFT:
 	;xor al,al
 	mov ecx, [esi+PLAYER.X]
 	cmp ecx,1
-	jl spidergameloop
+	jl re_spidergameloop
 	
 	dec ecx
 	mov [esi+PLAYER.X],ecx
-	jmp spidergameloop
+	jmp re_spidergameloop
 	
 	RIGHT:
 	;xor al,al
 	mov ecx,[esi+PLAYER.X]
 	cmp ecx, SCRWIDTH-1
-	jge spidergameloop
+	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.X],ecx
-	jmp spidergameloop
+	jmp re_spidergameloop
 	exit:
 	call terminateProcess
 	ret
@@ -682,30 +763,36 @@ start:
      sti            ; set The Interrupt Flag => enable interrupts
      cld            ; clear The Direction Flag
 
-	push eax; clearing all
-	push ebx
-	push ecx
-	push edx
-	push edi
-	push esi
+	push ds
+	pop es
+	
 	mov ah, 09h
 	mov edx, offset msg
 	int 21h
 	xor ah,ah
 	xor edx,edx
 	
-	; Wait for keystroke and read character.
+
 	mov ah,00h
 	int 16h
 	call setupspider
-	;call randombit
+	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	mov ah,00h
 	int 16h
+	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call terminateProcess
-	;call terminateProcess
-	; Terminate process with return code in response to a keystroke.
-    mov	ax,4C00h
-	int 	21h
 
 ; -------------------------------------------------------------------
 ; DATA
@@ -754,13 +841,18 @@ DATASEG
 	
 	
 	spiders 	SPIDER		9		dup	(<,,,,,>)
+	
 	spideramount dd 9; stores amount of spiders
 	spidersize dd 24
 	
 	
+	bullet 		BULLET		1	dup	(<,,,,,,,>)
+	BulletSize	 	dd 			36
+	TotalOfBullets	dd			5
 	
-	spiderpos dd 10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90; contains the x followed by y positions of each spider
 	
+	spiderpos dd 10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
+	entitypos dd 100,100,10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90
 	safezone dd 150,170,90,110 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
 	victory db "you won!", 13, 10, '$'
