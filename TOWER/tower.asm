@@ -221,13 +221,14 @@ PROC towerterrain
 	;call initialize_bricks
 	call drawRectangle,eax,0,ebx,SCRHEIGHT,16
 	call initialize_bricks
-	;call drawbricks
+	
 	ret
 ENDP towerterrain
 
 PROC setuptower
 	call setVideoMode,13h
 	call initialize_tower_player,160,200
+	call initialize_bricks
 	call towergame,001Bh
 	ret
 ENDP setuptower
@@ -264,14 +265,14 @@ PROC victorydet; checks the conditions for the win, sure its manual but seems ch
 	USES eax,edi,esi
 	mov edi, offset player
 	mov esi, offset safezone
-	mov eax,[edi+player.X]
+	mov eax,[edi+PLAYER.X]
 	cmp eax,[esi];checks first border for x
 	jl notSafe
 	add esi,4
 	cmp eax,[esi];checks second border for x
 	jg notSafe
 	add esi,4
-	mov eax,[edi+player.Y]
+	mov eax,[edi+PLAYER.Y]
 	cmp eax,[esi];checks first border for y
 	jl notSafe
 	add esi,4
@@ -335,11 +336,21 @@ ENDP drawplayer
 PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
 	USES eax,ebx,ecx,edx,edi,esi
 	mov eax, offset bricks
-	mov ebx, offset safezone
+	;mov ebx, offset safezone
 	mov ecx, [brickamount]
-	;mov edx, [bricksize]; doint it statically rn, to save edx and headache
+	mov edx, [bricksize]; doint it statically rn, to save edx and headache
 	; need to find the width, height is set to 6 for the moment being
-	
+	;xor esi,esi
+	;mov esi, offset brickmatrix
+	;brick_init_loop:
+	;mov ebx,[esi]
+	;mov [eax+BRICK.X_0], ebx
+	;add esi, 4
+	;mov ebx,[esi]
+	;mov [eax+BRICK.Y_0], ebx
+	;add esi,4
+	;add eax,edx
+	;loop brick_init_loop
 	
 	
 	
@@ -367,24 +378,41 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	add edx,7; increase height by 6+1 so no overlap
 	pop ecx
 	loop brick_vert_loop
+	
 	ret
 ENDP initialize_bricks
+
+
 PROC drawbricks
 	USES eax,ebx,ecx,edx,edi,esi
-	mov esi, offset bricks
+	
+	;mov esi, offset bricks
+	xor esi,esi
+	mov esi, offset brickamount
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
+	
 	drawloop:
 	;push ecx
 	;mov eax, [esi+bricks.ALIVE]
 	;cmp eax,1
 	;jl check_return
-	;call randBetweenVal,1,14
-	call drawRectangle,[esi+BRICK.X_0],[esi+BRICK.Y_0],[esi+BRICK.W],[esi+BRICK.H],1
+	
+	;call drawRectangle,2,6,6,8,12
+	mov edi,[esi+BRICK.X_0]
+	mov ebx,[esi+BRICK.Y_0]
+	
+	;mov edi, [esi]
+	;add esi, 4
+	;mov ebx, [esi]
+	;add esi,4
+	call randBetweenVal,1,14
+	call drawRectangle,edi,ebx,8,6,eax
 	;check_return:
 	add esi, edx
 	;pop ecx
 	loop drawloop
+	ret
 ENDP drawbricks		
 
 PROC initialize_tower_player; give the correct starting
@@ -425,6 +453,7 @@ PROC towergame
 		mov ecx,[esi+PLAYER.X]
 		mov ebx,[esi+PLAYER.Y]
 		call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+		call drawbricks
 		call victorydet
 		
 		call wait_VBLANK, 3
@@ -508,12 +537,8 @@ start:
      sti            ; set The Interrupt Flag => enable interrupts
      cld            ; clear The Direction Flag
 
-	push eax; clearing all
-	push ebx
-	push ecx
-	push edx
-	push edi
-	push esi
+	push ds
+	pop es
 	mov ah, 09h
 	mov edx, offset msg
 	int 21h
@@ -543,7 +568,7 @@ start:
 STRUC BRICK
 	X_0 dd 0
 	Y_0 dd 0
-	W dd 0
+	W dd 8
 	H dd 6
 	ALIVE dd 1; 1 will be for alive, 0 for dead
 	COL dd 1
@@ -583,7 +608,7 @@ DATASEG
 	bricks		BRICK	18		dup(< ,,,>)
 	brickamount dd 18
 	bricksize dd 24
-	;brickmatrix dd 136,41,142,41,148,41,154,41,160,41,
+	brickmatrix dd 136,41,144,41,152,41,160,41,168,41,176,41,136,47,144,47,152,47,160,47,168,47,176,47,136,53,144,53,152,53,160,53,168,53,176,53
 	
 	
 	
