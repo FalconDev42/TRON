@@ -2,15 +2,9 @@
 ; 80386
 ; 32-bit x86 assembly language
 ; TASM
-;
-; author:	Stijn Bettens, David Blinder
-; date:		25/09/2017
-; program:	Hello World!
 ; -------------------------------------------------------------------
 
-;create struct for bullet
-;create struct for tank
-;move tanks (in grid) and bullets (all diag)
+;Group: G20
 
 
 
@@ -32,40 +26,6 @@ RAND_C = 12345
 ; CODE
 ; -------------------------------------------------------------------
 CODESEG
-
-PROC print
-	ARG 	@@NUMBER:dword
-	USES 	eax, ebx, ecx, edx
-	
-	mov eax, [@@NUMBER]
-	mov ebx, 10
-	xor ecx, ecx
-	
-	dividing:
-	
-	inc ecx
-	
-	xor edx, edx ; set EDX to zero (so EDX:EAX = EAX)
-	div ebx ; eax result, edx remainder
-	
-	push edx
-	
-	test eax, eax
-	
-	jnz dividing
-	
-	mov ah, 02h
-	
-	printloop:
-	pop edx
-	add edx, '0'
-	
-	int 21h
-	
-	loop printloop
-
-	ret
-ENDP print
 
 PROC rand
     USES    ebx, ecx, edx
@@ -341,40 +301,6 @@ PROC initiateTanks
 	ret
 ENDP initiateTanks
 
-PROC showPalette
-	USES 	eax, ecx, edi
-
-	; Initialize video memory address.
-	mov	edi, VMEMADR
-	
-	
-	mov ecx, SCRHEIGHT
-	@@vertLoop:
-		push ecx
-		mov ecx, 63
-		mov al, 0
-		@@horLoop:
-			;linewidth 5px
-			push ecx
-			mov ecx, 4
-			
-			@@lineloop:
-				mov [edi], al
-				inc edi
-				loop @@lineloop
-				
-			inc al
-			
-			pop ecx
-			
-			loop @@horLoop
-		sub edi, 252
-		add edi, SCRWIDTH
-		pop ecx
-		loop @@vertLoop
-	ret
-ENDP showPalette
-
 ; Draw a rectangle (video mode 13h)
 ; 	* draws the rectangle from position (x0,y0) with
 ;	  positive width 'w' and height 'h', with color "col"
@@ -534,20 +460,37 @@ PROC inputFromPlayer
 	int  33h        ; -> BX CX DX
 	
 	test ebx, 1      ; check left mouse click
-	jz MouseNC		; zero if no click
+	jz SHORT MouseNC		; zero if no click
 	shr ecx, 1
 	
 	;calculating normalized speed
 	
-	sub ecx, [edi + TANK.X];delta x
 	mov eax, [edi + TANK.W]
-	shr eax, 1				; Tank center
-	sub ecx, eax
+	shr eax, 1				; Tank center X
+	add eax, [edi + TANK.X]
 	
-	sub edx, [edi + TANK.Y];delta y
-	mov eax, [edi + TANK.H]
-	shr eax, 1				; Tank center
-	sub edx, eax
+	mov ebx, [edi + TANK.H]
+	shr ebx, 1				; Tank center Y
+	add ebx, [edi + TANK.Y]
+	
+	call ShootBullet, esi, eax, ebx, ecx, edx
+	
+	MouseNC:
+	
+	ret
+ENDP inputFromPlayer
+	
+PROC ShootBullet
+	ARG		@@PtrBullets:dword, @@Xstart:dword, @@Ystart:dword, @@Xend:dword, @@Yend:dword
+	USES 	eax, ebx, ecx, edx, esi
+	
+	mov esi, [@@PtrBullets]
+	
+	mov edx, [@@Yend]
+	sub edx, [@@Ystart]
+	
+	mov ecx, [@@Xend]
+	sub ecx, [@@Xstart]
 	
 	cmp edx, 0	;calculating abs val of dx (delta y)
 	jge PosD
@@ -578,7 +521,7 @@ PROC inputFromPlayer
 	shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
 	
 	cmp ecx, 0	;protection against division by 0
-	je SHORT MouseNC
+	je SHORT BulletCannotShoot
 	
 	xor edx, edx ; set EDX to zero
 	div ecx ; eax result, edx remainder (A/k = a)
@@ -604,51 +547,42 @@ PROC inputFromPlayer
 	
 	mov [esi + BULLET.velY], eax
 	
-	mov ebx, [edi + TANK.W]
-	shr ebx, 1		; divide by 2 to get middle of tank
-	
 	mov ecx, [esi + BULLET.W]
 	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
 	
-	mov eax, [edi + TANK.X]
+	mov eax, [@@Xstart]
 	
-	add eax, ebx
 	sub eax, ecx
 	mov [esi + BULLET.X], eax		;first element in array is for player
-	
-	mov ebx, [edi + TANK.H]
-	shr ebx, 1		; divide by 2 to get middle of tank
 	
 	mov ecx, [esi + BULLET.H]
 	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
 	
-	mov eax, [edi + TANK.Y]
+	mov eax, [@@Ystart]
 	
-	add eax, ebx
 	sub eax, ecx
 	mov [esi + BULLET.Y], eax		;first element in array is for player
 	
 	mov [esi + BULLET.bounces], 0
 	mov [esi + BULLET.active], 1
 	
-	MouseNC:
+	BulletCannotShoot:
 	
 	ret
-ENDP inputFromPlayer
+ENDP ShootBullet
 
 PROC TankAI
 	ARG		@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
-	mov edi, [@@PtrTanks]
 	mov ecx, [TotalOfTanks]
-	
-	mov esi, edi ;Ptr to playerTank
 	
 	add edi, [TankSize]
 	dec ecx
 	
 	TanksAILoop:
+	mov esi, [@@PtrTanks] ;Ptr to playerTank
+	
 	cmp [edi + TANK.alive], 0
 	je AITankNotAlive
 	
@@ -687,10 +621,10 @@ PROC TankAI
 	
 	push eax
 	
-	call randBetweenVal, 10, edx
-	cmp eax, 90					; chance that AI Tank moves towards player increases as the player apprauches the player
+	call randBetweenVal, 10, 80
+	cmp eax, 12					; chance that AI Tank moves towards player increases as the player apprauches the player
 	pop eax
-	jg SHORT AITankNoMove
+	jg AITankNoMove
 	
 	cmp edx, 60
 	jg SHORT AIAvoidPlayer		; if distance to player is less than 60 keep moving in same direction
@@ -720,14 +654,14 @@ PROC TankAI
 	mov ebx, [esp - 12]
 	mov [edi + TANK.velX], ebx
 	mov [edi + TANK.velY], 0
-	jmp ShootBullet
+	jmp ShootBulletAITank
 	
 	NegVelXAI:
 	mov ebx, [esp - 12]
 	neg ebx
 	mov [edi + TANK.velX], ebx
 	mov [edi + TANK.velY], 0
-	jmp ShootBullet
+	jmp ShootBulletAITank
 	
 	MoveInYAI:
 	mov ebx, [edi + TANK.velX]		; prevent AI from getting stuck
@@ -746,19 +680,61 @@ PROC TankAI
 	mov ebx, [esp - 12]
 	mov [edi + TANK.velX], 0
 	mov [edi + TANK.velY], ebx
-	jmp ShootBullet
+	jmp ShootBulletAITank
 	
 	NegVelYAI:
 	mov ebx, [esp - 12]
 	neg ebx
 	mov [edi + TANK.velX], 0
 	mov [edi + TANK.velY], ebx
-	jmp ShootBullet
+	jmp ShootBulletAITank
 	
 	AITankNoMove:
 	add esp, 8
 	
-	ShootBullet:
+	ShootBulletAITank:
+	
+	add edx, eax
+	cmp edx, 120
+	jg SHORT AITankNotAlive
+	
+	mov esi, [@@PtrBullets]
+	mov eax, [TotalOfTanks]
+	sub eax, ecx
+	mul [BulletSize]
+	add esi, eax
+	
+	cmp [esi + BULLET.active], 0
+	jg SHORT AITankNotAlive
+	
+	call randBetweenVal, 10, 80
+	cmp eax, 11
+	jg SHORT AITankNotAlive
+	
+	mov eax, [edi + TANK.W]
+	shr eax, 1				; Tank center X
+	add eax, [edi + TANK.X]
+	
+	mov ebx, [edi + TANK.H]
+	shr ebx, 1				; Tank center Y
+	add ebx, [edi + TANK.Y]
+	
+	push edi
+	push ecx
+	mov edi, [@@PtrTanks]
+	
+	mov ecx, [edi + TANK.W]
+	shr ecx, 1				; PlayerTank center X
+	add ecx, [edi + TANK.X]
+	
+	mov edx, [edi + TANK.H]
+	shr edx, 1				; PlayerTank center Y
+	add edx, [edi + TANK.Y]
+	
+	call ShootBullet, esi, eax, ebx, ecx, edx
+	
+	pop ecx
+	pop edi
 	
 	AITankNotAlive:
 
