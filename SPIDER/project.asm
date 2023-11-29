@@ -245,6 +245,97 @@ PROC randBetweenVal
 	ret
 ENDP randBetweenVal
 
+;ROC ShootBullet
+;	ARG		@@PtrBullets:dword, @@Xstart:dword, @@Ystart:dword, @@Xend:dword, @@Yend:dword
+;	USES 	eax, ebx, ecx, edx, esi
+;	
+;	mov esi, [@@PtrBullets]
+;	
+;	mov edx, [@@Yend]
+;	sub edx, [@@Ystart]
+;	
+;	mov ecx, [@@Xend]
+;	sub ecx, [@@Xstart]
+;	
+;	cmp edx, 0	;calculating abs val of dx (delta y)
+;	jge PosD
+;	neg edx
+;	push -1
+;	jmp nextNegD
+;	PosD:
+;	push 1
+;	
+;	nextNegD:
+;	
+;	push edx
+;	
+;	cmp ecx, 0	;calculating abs val of cx (delta x)
+;	jge PosC
+;	neg ecx
+;	push -1
+;	jmp nextNegC
+;	PosC:
+;	push 1
+;	
+;	nextNegC:
+;	
+;	mov eax, ecx
+;	
+;	add ecx, edx	;aproximation of mag of delta vec |x|+|y|
+;	
+;	shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+;	
+;	cmp ecx, 0	;protection against division by 0
+;	je SHORT BulletCannotShoot
+;	
+;	xor edx, edx ; set EDX to zero
+;	div ecx ; eax result, edx remainder (A/k = a)
+;	
+;	pop edx
+;	cmp edx, 0
+;	jge XPositive
+;	neg eax
+;	XPositive:
+;	
+;	mov [esi + BULLET.velX], eax
+;	
+;	pop eax
+;	
+;	xor edx, edx ; set EDX to zero
+;	div ecx ; eax result, edx remainder (B/k = b)
+;	
+;	pop edx
+;	cmp edx, 0
+;	jge YPositive
+;	neg eax
+;	YPositive:
+;	
+;	mov [esi + BULLET.velY], eax
+;	
+;	mov ecx, [esi + BULLET.W]
+;	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
+;	
+;	mov eax, [@@Xstart]
+;	
+;	sub eax, ecx
+;	mov [esi + BULLET.X], eax		;first element in array is for player
+;	
+;	mov ecx, [esi + BULLET.H]
+;	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
+;	
+;	mov eax, [@@Ystart]
+;	
+;	sub eax, ecx
+;	mov [esi + BULLET.Y], eax		;first element in array is for player
+;	
+;	mov [esi + BULLET.bounces], 0
+;	mov [esi + BULLET.active], 1
+;	
+;	BulletCannotShoot:
+;	
+;	ret
+;ENDP ShootBullet
+;
 PROC rand
     USES    ebx, ecx, edx
 	
@@ -482,29 +573,6 @@ PROC collisiondet; will be checking in a three by three area around the players 
 	getouttahere:
 	ret
 ENDP collisiondet
-
-PROC victorydet; checks the conditions for the win, sure its manual but seems cho to me tbh
-	USES eax,edi,esi
-	mov edi, offset player
-	mov esi, offset safezone
-	mov eax,[edi+PLAYER.X]
-	cmp eax,[esi];checks first border for x
-	jl notSafe
-	add esi,4
-	cmp eax,[esi];checks second border for x
-	jg notSafe
-	add esi,4
-	mov eax,[edi+PLAYER.Y]
-	cmp eax,[esi];checks first border for y
-	jl notSafe
-	add esi,4
-	cmp eax,[esi]; checks second border for y
-	jg notSafe
-	call terminateProcess
-	notSafe:; if doesnt match any=> exit 
-	ret
-ENDP victorydet
-;waits until the update of the next frame, does this for framecount number of times
 
 
 PROC wait_VBLANK
@@ -871,17 +939,13 @@ PROC spidergame
 		mov ecx,[esi+PLAYER.X]
 		mov ebx,[esi+PLAYER.Y]
 		call DrawEntities
-		;call victorydet
 		call checkendcollision
 		push esi
 		xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
-		;call collisiondet,ecx,ebx,eax
-		;call drawDot,eax,eax,1;to debug
 		cmp eax,1
 		jge exit; make a loss screen from this
 		pop esi
 		
-		;call updatespider_bullet
 		call wait_VBLANK, 3
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS

@@ -51,26 +51,26 @@ PROC fillBackground
 	ret
 ENDP fillBackground
 PROC drawRectangle
-	ARG x0:word,y0:word,w:word,h:word,col:byte
+	ARG x0:dword,y0:dword,w:dword,h:dword,col:byte
 	;will be using two independant loops, one drawing vertical lines the other drawing horizontal
 	USES eax,ecx,edi,edx
 	mov al,[col]
 	xor EDI,EDI
 	mov EDI, VMEMADR
 	;mov ecx,w
-	movzx eax,[y0]
+	mov eax,[y0]
 	mov edx, SCRWIDTH
 	mul edx
-	movzx ebx, [x0]
+	mov ebx, [x0]
 	
 	add edi,eax
 	add edi,ebx
 	
-	movzx eax,[h]
+	mov eax,[h]
 	mov edx, SCRWIDTH
 	mul edx
 	
-	movzx edx,[w]
+	mov edx,[w]
 	mov ecx,edx
 	horloop:
 	mov [edi],al
@@ -78,7 +78,7 @@ PROC drawRectangle
 	inc edi
 	loop horloop
 	sub edi, edx
-	movzx ecx, [h]
+	mov ecx, [h]
 	vertloop:
 	mov [edi], AL
 	mov [edi+edx-1],AL
@@ -218,16 +218,24 @@ PROC towerterrain
 	mov eax,[esi+4];takes largest x-valkue
 	mov ebx, SCRWIDTH
 	sub ebx,eax
-	;call initialize_bricks
 	call drawRectangle,eax,0,ebx,SCRHEIGHT,16
-	call initialize_bricks
-	
 	ret
 ENDP towerterrain
 
 PROC setuptower
 	call setVideoMode,13h
+	NoMouse:
+	mov  ax, 0000h  ; reset mouse
+	int  33h        ; -> AX BX
+	cmp  ax, 0FFFFh
+	jne  NoMouse
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	
 	call initialize_tower_player,160,200
+	
+	
+	
 	call initialize_bricks
 	call towergame,001Bh
 	ret
@@ -253,6 +261,7 @@ ENDP drawDot
 
 ;Terminate the program.
 PROC terminateProcess
+
 	USES eax
 	call setVideoMode, 03h
 	mov	ax,04C00h
@@ -260,28 +269,203 @@ PROC terminateProcess
 	ret
 ENDP terminateProcess
 
-
-PROC victorydet; checks the conditions for the win, sure its manual but seems cho to me tbh
-	USES eax,edi,esi
-	mov edi, offset player
-	mov esi, offset safezone
-	mov eax,[edi+PLAYER.X]
-	cmp eax,[esi];checks first border for x
-	jl notSafe
-	add esi,4
-	cmp eax,[esi];checks second border for x
-	jg notSafe
-	add esi,4
-	mov eax,[edi+PLAYER.Y]
-	cmp eax,[esi];checks first border for y
-	jl notSafe
-	add esi,4
-	cmp eax,[esi]; checks second border for y
-	jg notSafe
-	call terminateProcess
-	notSafe:; if doesnt match any=> exit 
+PROC collision
+	ARG		@@X1:dword, @@Y1:dword, @@W1:dword, @@H1:dword, @@X2:dword, @@Y2:dword, @@W2:dword, @@H2:dword, @@BufferSpace:dword
+	USES	ebx, ecx, edx, edi, esi
+	;eax return a value from 0 or other:
+	;0000 no colision, 0001 upper left colision of obj2, 0010 upper right colision of obj2, 0100 down left colision of obj2, 1000 down right colision of obj2
+	;if two or more bits set -> multiple corners in obj1
+	; BufferSpace: space to have between object and block
+	
+	;IMPORTANT: IF THE obj1 HAS A SMALLER RECTANGLE THAN obj2 THERE COULD BE NO COLISION DETECTED, IF IT IS POSSIBLE THAT obj1 IS SMALLER THAN obj2 RECALL THE PROC WITH INVERTED ORDER OF obj1 AND obj2
+	
+	xor esi, esi ; Stores return during PROC because eax gets used for calls
+				; 0000
+	
+	mov ebx, [@@X1]
+	mov edx, [@@X2]
+	
+	mov edi, ebx
+	
+	mov ecx, [@@BufferSpace]
+	
+	; test if upper left in obj1
+	
+	sub ebx, ecx			; X1 - Buffer
+	add edi, ecx			
+	add edi, [@@W1]			; X1 + Buffer + W1
+	
+	call isInInterval, ebx, edx, edi	; X1 - Buffer < X2 < X1 + Buffer + W1
+	cmp eax, 2							; X2 < X1 - Buffer : If true -> only right side could have colision
+	je testRight
+	
+	cmp eax, 1						; If eax is 1 then X2 is in interval
+	jne testRight						; if X2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
+	
+	; test if same holds for Y
+	
+	mov ebx, [@@Y1]
+	mov edx, [@@Y2]
+	
+	mov edi, ebx
+	
+	sub ebx, ecx			; Y1 - Buffer
+	add edi, ecx			
+	add edi, [@@H1]			; Y1 + Buffer + H1
+	
+	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 < Y1 + Buffer + H1
+	cmp eax, 1						; If eax is 1 then Y2 is in interval
+	jne LeftUpperNotInInt
+	;Both X and Y were in there respective interval so corner must be in obj1
+	xor esi, 1
+	
+	LeftUpperNotInInt:
+	;Since we are here we can test if down left is in obj1
+	add edx, [@@H2]
+	
+	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 + H2 < Y1 + Buffer + H1
+	cmp eax, 1						; I eax is 1 the X2 is in interval
+	jne testRight
+	xor esi, 4
+	
+	testRight:
+	
+	;cmp esi, 0						; if esi still 0 then we mustt have jumped from the first cmp
+	;je NoReInitNecessary
+	mov ebx, [@@X1]
+	mov edx, [@@X2]
+	
+	mov edi, ebx
+	
+	; test if upper right in obj1
+	
+	sub ebx, ecx			; X1 - Buffer
+	add edi, ecx			
+	add edi, [@@W1]			; X1 + Buffer + W1
+	
+	;NoReInitNecessary:
+	
+	add edx, [@@W2]
+	
+	call isInInterval, ebx, edx, edi	; X1 - Buffer < X2 + W2 < X1 + Buffer + W1
+	cmp eax, 2							; X2 + W2 < X1 - Buffer : If true -> no colision because obj2 completely to the right of obj1
+	je NoCol
+	
+	cmp eax, 1						; If eax is 1 then X2 + W2 is in interval
+	jne NoCol						; if X2 + W2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
+	
+	; test if same holds for Y
+	
+	mov ebx, [@@Y1]
+	mov edx, [@@Y2]
+	
+	mov edi, ebx
+	
+	sub ebx, ecx			; Y1 - Buffer
+	add edi, ecx			
+	add edi, [@@H1]			; Y1 + Buffer + H1
+	
+	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 < Y1 + Buffer + H1
+	cmp eax, 1							; If eax is 1 then Y2 is in interval
+	jne RightUpperNotInInt
+	; Both X and Y were in there respective interval so corner must be in obj1
+	xor esi, 2
+	
+	RightUpperNotInInt:
+	;Since we are here we can test if down right is in obj1
+	add edx, [@@H2]
+	
+	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 + H2 < Y1 + Buffer + H1
+	cmp eax, 1							; If eax is 1 then X2 is in interval
+	jne NoCol
+	
+	xor esi, 8
+	
+	NoCol:
+	
+	mov eax, esi					; put val of esi in eax for return value
 	ret
-ENDP victorydet
+ENDP collision
+
+PROC isInInterval
+	ARG		@@a:dword, @@z:dword, @@b:dword
+	USES	ecx, edx
+	
+	; test if a <= z <= b
+	; returns in eax 1 if true, returns 2 if smaller than both
+	
+	mov eax, [@@a]
+	mov ecx, [@@z]
+	mov edx, [@@b]
+	
+	cmp eax, ecx
+	jg NotInIntA
+	
+	cmp ecx, edx
+	jg NotInInt
+	
+	mov eax, 1
+	jmp endIntTest
+	
+	NotInIntA:
+	mov eax, 2
+	
+	jmp endIntTest
+	
+	NotInInt:
+	mov eax, 0
+	
+	endIntTest:
+	
+	ret
+ENDP isInInterval
+
+PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manual but seems cho to me tbh
+	USES eax,ebx,ecx,edx,esi,edi
+	mov esi,offset player
+	mov eax,offset safezone
+	
+	mov edx,[eax+4]
+	mov ecx,[eax]
+	sub edx,ecx
+	mov edi,[eax+12]
+	mov ebx,[eax+8]
+	sub edi,ebx
+	
+	
+	
+	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,0
+	cmp eax,1
+	jl no_victory_collision
+	; input code here for victory screen, for the moment just end game
+	;call setVideoMode,3h
+	;call waitForSpecificKeystroke, 001Bh
+	call terminateProcess
+	
+	no_victory_collision:
+	mov edi,offset bricks
+	mov ecx,[brickamount]
+	mov edx,[bricksize]
+	
+	brick_check_loop:
+	mov eax, [edi+BRICK.ALIVE]
+	cmp eax, 1
+	jl nocollision
+	call collision,[edi+BRICK.X],[edi+BRICK.Y],[edi+BRICK.W],[edi+BRICK.H],[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
+	cmp eax,1
+	jge defeat
+	nocollision:
+	add edi, edx
+	loop brick_check_loop
+	jmp exit_collision
+	defeat:
+	call terminateProcess
+	;call setVideoMode,3h
+	;call waitForSpecificKeystroke, 001Bh
+	
+	exit_collision:
+	ret
+ENDP endcollisioncheck_bricks
 ;waits until the update of the next frame, does this for framecount number of times
 
 
@@ -336,84 +520,91 @@ ENDP drawplayer
 PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
 	USES eax,ebx,ecx,edx,edi,esi
 	mov eax, offset bricks
-	;mov ebx, offset safezone
+	mov ebx, offset brickmatrix
 	mov ecx, [brickamount]
 	mov edx, [bricksize]; doint it statically rn, to save edx and headache
-	; need to find the width, height is set to 6 for the moment being
-	;xor esi,esi
-	;mov esi, offset brickmatrix
-	;brick_init_loop:
-	;mov ebx,[esi]
-	;mov [eax+BRICK.X_0], ebx
-	;add esi, 4
-	;mov ebx,[esi]
-	;mov [eax+BRICK.Y_0], ebx
-	;add esi,4
-	;add eax,edx
-	;loop brick_init_loop
-	
-	
-	
-	mov edx, [ebx+12]
-	inc edx; add one so no overlap with safezone
-	
-	mov ecx, 3; 6x3 layer of bricks so need a loop
-	brick_vert_loop:
-	
-	mov esi, [ebx]
-	push ecx
-	mov ecx,6
-	brick_hor_loop:
-	mov [eax+BRICK.X_0], esi
-	add esi,8
+	brick_init_loop:
+	mov esi,[ebx]
+	mov [eax+BRICK.X],esi
+	add ebx,4
+	mov esi,[ebx]
+	mov [eax+BRICK.Y],esi
+	add ebx,4
 	mov [eax+BRICK.W],8
 	mov [eax+BRICK.H],6
-	mov [eax+BRICK.Y_0],edx
-	add eax, 24; 24 is bricksize
-	
-	
-	
-	
-	loop brick_hor_loop
-	add edx,7; increase height by 6+1 so no overlap
-	pop ecx
-	loop brick_vert_loop
+	mov [eax+BRICK.ALIVE],1
+	add eax, edx
+	loop brick_init_loop
 	
 	ret
 ENDP initialize_bricks
+PROC update_bullet
+	USES esi,eax ,ebx,ecx,edx,edi
+	mov esi, offset bullet
+	mov eax , [esi+BULLET.active]
+	cmp eax,1
+	jl exitbullet
+    mov eax, [esi+BULLET.X]
+	add eax, [esi+BULLET.velX]
+	
+	cmp eax,0
+	jl bullet_leaves
+	cmp eax,SCRWIDTH
+	jg bullet_leaves
+	
+	mov [esi+BULLET.X],eax
+	
+	mov eax, [esi+BULLET.Y]
+	add eax, [esi+BULLET.velY]
+	
+	cmp eax,0
+	jl SHORT bullet_leaves
+	cmp eax,SCRHEIGHT
+	jg SHORT bullet_leaves
+	
+	mov [esi+BULLET.Y],eax
+	jmp SHORT exitbullet
+	
+	
+	bullet_leaves:
+	mov [esi+BULLET.active],0
+	
+	exitbullet:
+	ret
+ENDP update_bullet
 
-
-PROC drawbricks
+PROC drawbrickentities
 	USES eax,ebx,ecx,edx,edi,esi
 	
 	;mov esi, offset bricks
 	xor esi,esi
-	mov esi, offset brickamount
+	mov esi, offset bricks
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
 	
 	drawloop:
-	;push ecx
-	;mov eax, [esi+bricks.ALIVE]
-	;cmp eax,1
-	;jl check_return
 	
-	;call drawRectangle,2,6,6,8,12
-	mov edi,[esi+BRICK.X_0]
-	mov ebx,[esi+BRICK.Y_0]
+	mov eax, [esi+BRICK.ALIVE]
+	cmp eax,1
+	jl check_return
+	mov edi,[esi+BRICK.X]
+	mov ebx,[esi+BRICK.Y]
 	
-	;mov edi, [esi]
-	;add esi, 4
-	;mov ebx, [esi]
-	;add esi,4
-	call randBetweenVal,1,14
-	call drawRectangle,edi,ebx,8,6,eax
-	;check_return:
+	;call randBetweenVal,1,14
+	call drawRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],12
+	check_return:
 	add esi, edx
-	;pop ecx
 	loop drawloop
+	mov esi, offset player
+	call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+	mov edi, offset bullet
+	mov eax, [edi+BULLET.active]
+	cmp eax,1
+	jl nobullet
+	call drawDot,[edi+BULLET.X],[edi+BULLET.Y],1,1,[edi+BULLET.COL]
+	nobullet:
 	ret
-ENDP drawbricks		
+ENDP drawbrickentities		
 
 PROC initialize_tower_player; give the correct starting
 	USES eax,ebx,esi
@@ -427,6 +618,7 @@ PROC initialize_tower_player; give the correct starting
 	ret
 ENDP initialize_tower_player
 PROC lowertower
+	USES eax,ebx,ecx,edx,esi,edi
 	mov eax, [safezone+8]
 	mov ebx,[safezone+12]
 	inc eax
@@ -434,10 +626,17 @@ PROC lowertower
 	mov [safezone+8],eax
 	mov [safezone+12],ebx
 	;add code here for the bricks
+	xor eax,eax
+	mov esi, offset bricks
+	mov ecx, [brickamount]
+	mov edx, [bricksize]
+	lower_brick_loop:
+	mov eax, [esi+BRICK.Y]
+	add eax,1
+	mov [esi+BRICK.Y],eax
+	add esi, edx
+	loop lower_brick_loop
 	ret
-	
-	
-	
 ENDP lowertower
 
 
@@ -446,27 +645,31 @@ PROC towergame
 	USES 	eax,ecx,edx, ebx,esi,edi	
 	mov esi, offset player
 ;	call spiderterrain;paint the canvas
-	mov edi, offset safezone
+	mov ebx, offset safezone
 	xor edx,edx
 	towergameloop:
 		call towerterrain; activate if want to clear behind character
-		mov ecx,[esi+PLAYER.X]
-		mov ebx,[esi+PLAYER.Y]
-		call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
-		call drawbricks
-		call victorydet
+		;mov ecx,[esi+PLAYER.X]
+		;mov ebx,[esi+PLAYER.Y]
 		
-		call wait_VBLANK, 3
-		;mov ah, 01h ; function 01h (check if key is pressed)
-		;int 16h ; call keyboard BIOS
-		;
-		;jz SHORT spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+		call drawbrickentities
+		call endcollisioncheck_bricks
 		inc edx
+		
 		cmp edx,5; change the amount to change dificulty, will decide how often the whole shit descends
 		jl continuegameloop
 		mov edx,0
 		call lowertower
 		continuegameloop:
+		
+		call update_bullet
+		call wait_VBLANK, 3
+		mov ah, 01h ; function 01h (check if key is pressed)
+		int 16h ; call keyboard BIOS
+		;
+		jz SHORT towergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+		
+		
 		mov ah, 00h ;get key from buffer (ascii code in al)
 		int 16h
 		
@@ -483,6 +686,97 @@ PROC towergame
 		je LEFT
 		cmp al,100; checks for D
 		je RIGHT
+		re_towergameloop:
+		
+		mov edi, offset bullet
+	
+		cmp [edi + BULLET.active], 0
+		jg  MouseNC
+		
+		xor ecx, ecx
+		xor edx, edx
+		xor ebx,ebx
+		mov  ax, 0003h  ; get mouse position and buttonstatus
+		int  33h        ; -> BX CX DX
+		
+		test ebx, 1      ; check left mouse click
+		jz SHORT MouseNC		; zero if no click
+		shr ecx, 1
+		
+		;calculating normalized speed
+		
+		sub ecx, [esi + PLAYER.X];delta x
+		sub ecx, eax
+		
+		sub edx, [esi + PLAYER.Y];delta y
+		sub edx, eax
+		
+		cmp edx, 0	;calculating abs val of dx (delta y)
+		jge PosD
+		neg edx
+		push -1
+		jmp nextNegD
+		PosD:
+		push 1
+		
+		nextNegD:
+		
+		push edx
+		
+		cmp ecx, 0	;calculating abs val of cx (delta x)
+		jge PosC
+		neg ecx
+		push -1
+		jmp nextNegC
+		PosC:
+		push 1
+		
+		nextNegC:
+		
+		mov eax, ecx
+		
+		add ecx, edx	;aproximation of mag of delta vec |x|+|y|
+		
+		shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+		
+		cmp ecx, 0	;protection against division by 0
+		je SHORT MouseNC
+		
+		xor edx, edx ; set EDX to zero
+		div ecx ; eax result, edx remainder (A/k = a)
+		
+		pop edx
+		cmp edx, 0
+		jge XPositive
+		neg eax
+		XPositive:
+		
+		mov [edi + BULLET.velX], eax
+		
+		pop eax
+		
+		xor edx, edx ; set EDX to zero
+		div ecx ; eax result, edx remainder (B/k = b)
+		
+		pop edx
+		cmp edx, 0
+		jge YPositive
+		neg eax
+		YPositive:
+		
+		mov [edi + BULLET.velY], eax
+		
+		mov eax,[esi+PLAYER.X]
+		mov [edi + BULLET.X], 	eax	;first element in array is for player
+		
+		mov eax,[esi+PLAYER.Y]
+		mov [edi + BULLET.Y], eax		;first element in array is for player
+		
+		mov [edi + BULLET.bounces], 0
+		mov [edi + BULLET.active], 1
+		
+		MouseNC:
+		
 		
 	jne	towergameloop ; if doesnt find anything restart
 	
@@ -490,45 +784,47 @@ PROC towergame
 	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx,1 ; checks borders
-	jl towergameloop
+	jl re_towergameloop
 	
 	dec ecx ; moves position
 	mov [esi+PLAYER.Y],ecx
-	jmp towergameloop ;returns to wait for keypress
+	jmp re_towergameloop ;returns to wait for keypress
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx, SCRHEIGHT-1
-	jge towergameloop
+	jge re_towergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
-	jmp towergameloop
+	jmp re_towergameloop
 	
 	LEFT:
+	mov ebx, offset safezone
 	;xor al,al
 	mov ecx, [esi+PLAYER.X]
 	push eax
-	mov eax, [edi]
+	mov eax, [ebx]
 	inc eax
 	cmp ecx, eax
 	pop eax
-	jl towergameloop
+	jl re_towergameloop
 	
 	dec ecx
 	mov [esi+PLAYER.X],ecx
-	jmp towergameloop
+	jmp re_towergameloop
 	
 	RIGHT:
+	mov ebx, offset safezone
 	;xor al,al
 	mov ecx,[esi+PLAYER.X]
 	push eax
-	mov eax, [edi+4]
+	mov eax, [ebx+4]
 	dec eax
 	cmp ecx, eax
 	pop eax
-	jge towergameloop
+	jge re_towergameloop
 	inc ecx
 	mov [esi+PLAYER.X],ecx
-	jmp towergameloop
+	jmp re_towergameloop
 	exit:
 	call terminateProcess
 	ret
@@ -566,11 +862,12 @@ start:
 
 ; if add spider as struct: only need 2 pieces of info on spider, namely position, in x and y, and if alive doesnt matter=> insta respawn at start position spider
 STRUC BRICK
-	X_0 dd 0
-	Y_0 dd 0
+	X dd 0
+	Y dd 0
 	W dd 8
 	H dd 6
 	ALIVE dd 1; 1 will be for alive, 0 for dead
+	RES_CHANCE dd 1
 	COL dd 1
 ENDS
 
@@ -588,7 +885,7 @@ STRUC BULLET
 	velY 	dd 0
 	bounces	dd 0
 	active 	dd 0
-	col 	dd 30
+	COL 	dd 30
 	W		dd 3
 ENDS BULLET
 
@@ -610,6 +907,7 @@ DATASEG
 	bricksize dd 24
 	brickmatrix dd 136,41,144,41,152,41,160,41,168,41,176,41,136,47,144,47,152,47,160,47,168,47,176,47,136,53,144,53,152,53,160,53,168,53,176,53
 	
+	bullet		BULLET 1		dup(<,,,,,,,>)
 	
 	
 	spiderpos dd 0,0,10,10,30,30,40,40,50,50,60,60,70,70,80,80,90,90; contains the x followed by y positions of each spider
