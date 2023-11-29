@@ -17,7 +17,8 @@ ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
-TANKSPEED EQU 1	; screen height
+TANKSPEED EQU 12	; screen height (16 is 1 << 4)
+SCALARBITSHIFT EQU 4	;scales every coordinate/speed
 
 RAND_A = 1103515245
 RAND_C = 12345
@@ -145,14 +146,18 @@ PROC initiateBlocks		;problem with section division (has to come back to 0 when 
 	jg resetToStartX
 	
 	call randBetweenVal, 30, 45
+	shl eax, SCALARBITSHIFT
 	mov [edi + BLOCK.W], eax
+	shr eax, SCALARBITSHIFT
 	
 	push eax
 	sub esi, eax
 	
 	; rand X coord
 	call randBetweenVal, edx, esi
+	shl eax, SCALARBITSHIFT
 	mov [edi + BLOCK.X], eax
+	;shr eax, SCALARBITSHIFT
 	
 	pop eax
 	add esi, eax
@@ -208,13 +213,17 @@ PROC initiateBlocks		;problem with section division (has to come back to 0 when 
 	jle resetToStartY
 	
 	call randBetweenVal, 30, 45
+	shl eax, SCALARBITSHIFT
 	mov [edi + BLOCK.H], eax
+	shr eax, SCALARBITSHIFT
 	
 	push eax
 	sub esi, eax
 	; rand Y coord
 	call randBetweenVal, edx, esi
+	shl eax, SCALARBITSHIFT
 	mov [edi + BLOCK.Y], eax
+	;shr eax, SCALARBITSHIFT
 	
 	pop eax
 	add esi, eax
@@ -230,73 +239,105 @@ ENDP initiateBlocks
 
 ; Set ennemy tanks in corners and player tank in the center
 PROC initiateTanks
-	ARG 	@@PtrTanks:dword
-	USES 	eax, ebx, ecx, edi, edx
+	ARG 	@@PtrTanks:dword, @@PtrInitArray:dword
+	USES 	eax, ebx, ecx, edi, edx, esi
 	
 	mov edi, [@@PtrTanks]
 	mov ebx, [TankSize]
+	mov esi, [@@PtrInitArray]
 	
 	
-	mov [edi + TANK.X], 140
-	mov [edi + TANK.Y], 150
+	; mov [edi + TANK.X], 140
+	; mov [edi + TANK.Y], 150
 	
-	mov [edi + TANK.velX], 0
-	mov [edi + TANK.velY], 0
+	; mov [edi + TANK.velX], 0
+	; mov [edi + TANK.velY], 0
 	
-	mov [edi + TANK.W], 25
-	mov [edi + TANK.H], 20
+	; mov [edi + TANK.W], 25
+	; mov [edi + TANK.H], 20
 	
-	mov [edi + TANK.alive], 1
-	mov [edi + TANK.col], 1
+	; mov [edi + TANK.alive], 1
+	; mov [edi + TANK.col], 1
 	
-	mov edx, SCRWIDTH
-	sub edx, [edi + TANK.W]
+	; mov edx, SCRWIDTH
+	; sub edx, [edi + TANK.W]
 	
-	add edi, ebx
+	; add edi, ebx
 	
 	mov ecx, [TotalOfTanks]
-	dec ecx
+	; dec ecx
 	
-	resetXTank:
-	xor eax, eax
+	; resetXTank:
+	; xor eax, eax
+	
+	; TanksInitLoop:
+	; cmp eax, SCRWIDTH
+	; jg resetXTank
+	
+	; mov [edi + TANK.X], eax
+	; mov [edi + TANK.Y], 0
+	
+	; mov [edi + TANK.velX], 0
+	; mov [edi + TANK.velY], 0
+	
+	; mov [edi + TANK.W], 25
+	; mov [edi + TANK.H], 20
+	
+	; mov [edi + TANK.alive], 1
+	; mov [edi + TANK.col], 14
+	
+	; add eax, edx
+	
+	; add edi, ebx
+	; loop TanksInitLoop
+	
+	; mov edi, [@@PtrTanks]
+	; add edi, ebx
+	
+	; mov edx, SCRHEIGHT
+	; sub edx, [edi + TANK.H]
+	
+	; mov ecx, [TotalOfTanks]
+	; shr ecx, 1
+	
+	; mov eax, edx
+	
+	; TanksInitLoopY:
+	; mov [edi + TANK.Y], eax
+	
+	; add edi, ebx
+	; loop TanksInitLoopY
 	
 	TanksInitLoop:
-	cmp eax, SCRWIDTH
-	jg resetXTank
 	
+	mov eax, [esi]
+	shl eax, SCALARBITSHIFT
 	mov [edi + TANK.X], eax
-	mov [edi + TANK.Y], 0
+	add esi, 4
+	
+	mov eax, [esi]
+	shl eax, SCALARBITSHIFT
+	mov [edi + TANK.Y], eax
+	add esi, 4
 	
 	mov [edi + TANK.velX], 0
 	mov [edi + TANK.velY], 0
 	
-	mov [edi + TANK.W], 25
-	mov [edi + TANK.H], 20
+	mov [edi + TANK.W], 400	; 25 shl 4
+	mov [edi + TANK.H], 320	; 20 shl 4
 	
 	mov [edi + TANK.alive], 1
-	mov [edi + TANK.col], 14
 	
-	add eax, edx
+	cmp ecx, [TotalOfTanks]
+	jne TankIsNotPlayer
+	mov [edi + TANK.col], 1
+	jmp TankIsEnnemy
+	TankIsNotPlayer:
+	mov [edi + TANK.col], 14
+	TankIsEnnemy:
 	
 	add edi, ebx
 	loop TanksInitLoop
-	
-	mov edi, [@@PtrTanks]
-	add edi, ebx
-	
-	mov edx, SCRHEIGHT
-	sub edx, [edi + TANK.H]
-	
-	mov ecx, [TotalOfTanks]
-	shr ecx, 1
-	
-	mov eax, edx
-	
-	TanksInitLoopY:
-	mov [edi + TANK.Y], eax
-	
-	add edi, ebx
-	loop TanksInitLoopY
 	
 	ret
 ENDP initiateTanks
@@ -465,6 +506,9 @@ PROC inputFromPlayer
 	
 	;calculating normalized speed
 	
+	shl ecx, SCALARBITSHIFT
+	shl edx, SCALARBITSHIFT
+	
 	mov eax, [edi + TANK.W]
 	shr eax, 1				; Tank center X
 	add eax, [edi + TANK.X]
@@ -488,9 +532,11 @@ PROC ShootBullet
 	
 	mov edx, [@@Yend]
 	sub edx, [@@Ystart]
+	;shl edx, SCALARBITSHIFT
 	
 	mov ecx, [@@Xend]
 	sub ecx, [@@Xstart]
+	;shl ecx, SCALARBITSHIFT
 	
 	cmp edx, 0	;calculating abs val of dx (delta y)
 	jge PosD
@@ -518,7 +564,8 @@ PROC ShootBullet
 	
 	add ecx, edx	;aproximation of mag of delta vec |x|+|y|
 	
-	shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+	;shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
+	shr ecx, SCALARBITSHIFT + 2
 	
 	cmp ecx, 0	;protection against division by 0
 	je SHORT BulletCannotShoot
@@ -572,7 +619,7 @@ PROC ShootBullet
 ENDP ShootBullet
 
 PROC TankAI
-	ARG		@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
+	ARG		@@PtrTanks:dword, @@PtrBullets:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov ecx, [TotalOfTanks]
@@ -622,11 +669,11 @@ PROC TankAI
 	push eax
 	
 	call randBetweenVal, 10, 80
-	cmp eax, 12					; chance that AI Tank moves towards player increases as the player apprauches the player
+	cmp eax, 15					; chance that AI Tank moves towards player increases as the player apprauches the player
 	pop eax
 	jg AITankNoMove
 	
-	cmp edx, 60
+	cmp edx, 960				; 60 shl 4
 	jg SHORT AIAvoidPlayer		; if distance to player is less than 60 keep moving in same direction
 	
 	neg ebx
@@ -695,7 +742,7 @@ PROC TankAI
 	ShootBulletAITank:
 	
 	add edx, eax
-	cmp edx, 120
+	cmp edx, 2240			;120 shl 4
 	jg SHORT AITankNotAlive
 	
 	mov esi, [@@PtrBullets]
@@ -708,7 +755,7 @@ PROC TankAI
 	jg SHORT AITankNotAlive
 	
 	call randBetweenVal, 10, 80
-	cmp eax, 11
+	cmp eax, 12
 	jg SHORT AITankNotAlive
 	
 	mov eax, [edi + TANK.W]
@@ -987,7 +1034,7 @@ PROC moveEntities
 	mov eax, [esi + TANK.X]
 	add eax, [esi + TANK.velX]
 	
-	call colision, 0, 0, SCRWIDTH, SCRHEIGHT, eax, ebx, [esi + TANK.W], [esi + TANK.H], 0
+	call colision, 0, 0, SCRWIDTH * 16, SCRHEIGHT * 16, eax, ebx, [esi + TANK.W], [esi + TANK.H], 0
 	xor eax, 0Fh
 	
 	cmp eax, 0
@@ -996,7 +1043,7 @@ PROC moveEntities
 		je speedIsVertB
 		jl speedXIsNegB
 		;VelX is pos.
-		mov eax, SCRWIDTH
+		mov eax, SCRWIDTH * 16
 		sub eax, [esi + TANK.W]
 		dec eax
 		
@@ -1015,7 +1062,7 @@ PROC moveEntities
 		je SetVelZeroB
 		jl speedYIsNegB
 		; VelY is pos
-		mov eax, SCRHEIGHT
+		mov eax, SCRHEIGHT * 16
 		sub eax, [esi + TANK.H]
 		dec eax
 		
@@ -1158,7 +1205,7 @@ PROC moveEntities
 	mov ebx, [esi + BULLET.Y]
 	add ebx, [esi + BULLET.velY]
 	
-	call colision, 0, 0, SCRWIDTH, SCRHEIGHT, eax, ebx, [esi + BULLET.W], [esi + BULLET.H], 0
+	call colision, 0, 0, SCRWIDTH * 16, SCRHEIGHT * 16, eax, ebx, [esi + BULLET.W], [esi + BULLET.H], 0
 	xor eax, 0Fh
 	
 	cmp eax, 0
@@ -1167,7 +1214,7 @@ PROC moveEntities
 	
 		cmp ebx, [esi + BULLET.H]		;ebx still contains Y future (compare top side of screen (0 + H))
 		jl NegVelYBulletBoundary
-		mov eax, SCRHEIGHT
+		mov eax, SCRHEIGHT * 16
 		sub eax, [esi + BULLET.H]
 		cmp ebx, eax
 		jg NegVelYBulletBoundary
@@ -1178,7 +1225,7 @@ PROC moveEntities
 		cmp ebx, [esi + BULLET.W]
 		jl NegVelXBulletBoundary
 		
-		mov eax, SCRWIDTH
+		mov eax, SCRWIDTH * 16
 		sub eax, [esi + BULLET.W]
 		cmp ebx, eax
 		jg NegVelXBulletBoundary
@@ -1284,31 +1331,47 @@ ENDP moveEntities
 
 PROC selectiveBackgroundFiller
 	ARG		@@PtrTanks:dword, @@PtrBullets:dword
-	USES 	ebx, ecx, edi
+	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov edi, [@@PtrTanks]
-	mov ebx, [TankSize]
 	mov ecx, [TotalOfTanks]
 	
 	TanksBackgoundLoop:
-	cmp [edi + TANK.alive], 0
-	je SHORT noBackgroundResetNeededTank
+	;cmp [edi + TANK.alive], 0
+	;je SHORT noBackgroundResetNeededTank
 	
-	call drawFilledRectangle, [edi + TANK.X], [edi + TANK.Y], [edi + TANK.W], [edi + TANK.H], 0
+	mov eax, [edi + TANK.X]
+	mov ebx, [edi + TANK.Y]
+	mov edx, [edi + TANK.W]
+	mov esi, [edi + TANK.H]
+	shr eax, SCALARBITSHIFT
+	shr ebx, SCALARBITSHIFT
+	shr edx, SCALARBITSHIFT
+	shr esi, SCALARBITSHIFT
 	
-	noBackgroundResetNeededTank:
-	add edi, ebx
+	call drawFilledRectangle, eax, ebx, edx, esi, 0
+	
+	;noBackgroundResetNeededTank:
+	add edi, [TankSize]
 	loop TanksBackgoundLoop
 	
 	mov	edi, [@@PtrBullets]
-	mov ebx, [BulletSize]
 	mov ecx, [TotalOfBullets]
 	
 	BulletsBackgoundLoop:
 	; cannot ignore non active bullets because they may still be drawn
-	call drawFilledRectangle, [edi + BULLET.X], [edi + BULLET.Y], [edi + BULLET.W], [edi + BULLET.H], 0
+	mov eax, [edi + BULLET.X]
+	mov ebx, [edi + BULLET.Y]
+	mov edx, [edi + BULLET.W]
+	mov esi, [edi + BULLET.H]
+	shr eax, SCALARBITSHIFT
+	shr ebx, SCALARBITSHIFT
+	shr edx, SCALARBITSHIFT
+	shr esi, SCALARBITSHIFT
 	
-	add edi, ebx
+	call drawRectangle, eax, ebx, edx, esi, 0
+	
+	add edi, [BulletSize]
 	loop BulletsBackgoundLoop
 	
 	ret
@@ -1319,7 +1382,6 @@ PROC show
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov edi, [@@PtrTanks]
-	mov ebx, [TankSize]
 	mov ecx, [TotalOfTanks]
 	
 	TanksShowLoop:
@@ -1328,37 +1390,59 @@ PROC show
 		mov [edi + TANK.col], 25
 	StillAlive:
 	
-	call drawFilledRectangle, [edi + TANK.X], [edi + TANK.Y], [edi + TANK.W], [edi + TANK.H], [edi + TANK.col]
+	mov eax, [edi + TANK.X]
+	mov ebx, [edi + TANK.Y]
+	mov edx, [edi + TANK.W]
+	mov esi, [edi + TANK.H]
+	shr eax, SCALARBITSHIFT
+	shr ebx, SCALARBITSHIFT
+	shr edx, SCALARBITSHIFT
+	shr esi, SCALARBITSHIFT
 	
-	add edi, ebx
+	call drawFilledRectangle, eax, ebx, edx, esi, [edi + TANK.col]
+	
+	add edi, [TankSize]
 	loop TanksShowLoop
 	
 	
 	mov	edi, [@@PtrBlock]
-	mov ebx, [BlockSize]
 	mov ecx, [TotalOfBlocks]
 	
 	BlocksShowLoop:
-	call drawRectangle, [edi + BLOCK.X], [edi + BLOCK.Y], [edi + BLOCK.W], [edi + BLOCK.H], [edi + BLOCK.col]
+	mov eax, [edi + BLOCK.X]
+	mov ebx, [edi + BLOCK.Y]
+	mov edx, [edi + BLOCK.W]
+	mov esi, [edi + BLOCK.H]
+	shr eax, SCALARBITSHIFT
+	shr ebx, SCALARBITSHIFT
+	shr edx, SCALARBITSHIFT
+	shr esi, SCALARBITSHIFT
 	
-	add edi, ebx
+	call drawRectangle, eax, ebx, edx, esi, [edi + BLOCK.col]
+	
+	add edi, [BlockSize]
 	loop BlocksShowLoop
 	
 	mov	edi, [@@PtrBullets]
-	mov ebx, [BulletSize]
 	mov ecx, [TotalOfBullets]
 	
 	BulletsShowLoop:
 	cmp [edi + BULLET.active], 0
 	je SHORT bulletNotActive
 	
-	mov eax, [edi + BULLET.active]
-	inc eax
-	mov [edi + BULLET.col], eax
-	call drawRectangle, [edi + BULLET.X], [edi + BULLET.Y], [edi + BULLET.W], [edi + BULLET.H], [edi + BULLET.col]
+	mov eax, [edi + BULLET.X]
+	mov ebx, [edi + BULLET.Y]
+	mov edx, [edi + BULLET.W]
+	mov esi, [edi + BULLET.H]
+	shr eax, SCALARBITSHIFT
+	shr ebx, SCALARBITSHIFT
+	shr edx, SCALARBITSHIFT
+	shr esi, SCALARBITSHIFT
+	
+	call drawRectangle, eax, ebx, edx, esi, [edi + BULLET.col]
 	
 	bulletNotActive:
-	add edi, ebx
+	add edi, [BulletSize]
 	loop BulletsShowLoop
 	
 	ret
@@ -1444,7 +1528,8 @@ start:
 	call initiateBlocks, edx
 	
 	mov edi, offset Tanks
-	call initiateTanks, edi
+	mov eax, offset TankPosInitArr
+	call initiateTanks, edi, eax
 	
 	
 	NoMouse:
@@ -1465,8 +1550,8 @@ start:
 	
 	call inputFromPlayer, edi, ebx
 	
-				;@@PtrTanks:dword, @@PtrBullets:dword, @@PtrBlock:dword
-	call TankAI, edi, ebx, edx
+				;@@PtrTanks:dword, @@PtrBullets:dword
+	call TankAI, edi, ebx
 	
 	call moveEntities, edi, edx, ebx
 	
@@ -1521,11 +1606,11 @@ STRUC BULLET
 	Y		dd 0
 	velX 	dd 0
 	velY 	dd 0
-	W		dd 3
-	H		dd 3
+	W		dd 48	; 3 shl 4
+	H		dd 48	; 3 shl 4
 	bounces	dd 0
 	active 	dd 0
-	col 	dd 30
+	col 	dd 3
 ENDS BULLET
 
 STRUC TANK
@@ -1548,6 +1633,8 @@ randSeed		dd			2003630
 Tanks			TANK		5	dup	(<,,,,,,,>)
 TankSize	 	dd 			32
 TotalOfTanks	dd			5
+
+TankPosInitArr	dd				160, 150, 	0, 0, 	295, 0, 	0, 180, 	295, 180
 
 Bullets 		BULLET		5	dup	(<,,,,,,,>)
 BulletSize	 	dd 			36
