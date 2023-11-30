@@ -755,7 +755,7 @@ PROC TankAI
 	jg SHORT AITankNotAlive
 	
 	call randBetweenVal, 10, 80
-	cmp eax, 12
+	cmp eax, 11
 	jg SHORT AITankNotAlive
 	
 	mov eax, [edi + TANK.W]
@@ -1373,6 +1373,63 @@ PROC selectiveBackgroundFiller
 	
 	add edi, [BulletSize]
 	loop BulletsBackgoundLoop
+	
+	mov	edi, VMEMADR
+	
+	xor ecx, ecx
+	xor edx, edx
+	mov  ax, 0003h  ; get mouse position and buttonstatus
+	int  33h        ; -> BX CX DX
+	; make everyting above the mouse black
+	shr cx, 1
+	push ecx
+	
+	mov ebx, edx
+	mov eax, SCRWIDTH/4
+	
+	xor edx, edx
+	mul ebx
+	
+	mov ecx, eax
+	
+	xor eax, eax	;background is black (0)
+	rep	stosd ;uses stosd (stores whole 4 bytes)
+	
+	pop ecx
+	add edi, ecx
+	
+	;add edi, SCRWIDTH*17
+	
+	;add edi, 15
+	mov edx, 17
+	horizontalMouseLoopClear:
+	
+		add edi, 8
+		mov ecx, (SCRWIDTH - 8)/4
+		
+		rep stosd
+		
+		
+		cmp edi, (SCRWIDTH*SCRHEIGHT) + VMEMADR
+		jg MouseTooLow	; edi is further than last pixel of screen so dont Draw
+	
+	dec edx
+	cmp edx, 0
+	jg horizontalMouseLoopClear
+	
+	mov ecx, SCRWIDTH*SCRHEIGHT
+	add ecx, VMEMADR
+	
+	cmp edi, ecx
+	jg MouseTooLow	; edi is further than last pixel of screen so dont Draw
+	
+	sub ecx, edi
+	
+	shr ecx, 2 
+	
+	rep stosd
+	
+	MouseTooLow:
 	
 	ret
 ENDP selectiveBackgroundFiller
