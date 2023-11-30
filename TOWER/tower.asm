@@ -638,7 +638,34 @@ PROC lowertower
 	loop lower_brick_loop
 	ret
 ENDP lowertower
-
+PROC checkbrickbulletcollision
+	USES eax,ebx,ecx,edx,esi,edi
+	mov esi, offset bricks
+	mov ecx, [brickamount]
+	mov edx, [bricksize]
+	mov edi, offset bullet
+	
+	brickloop:
+	mov eax,[edi +BULLET.active]
+	cmp eax,1
+	jl exit_bullet_collision
+	mov eax, [esi+BRICK.ALIVE]
+	cmp eax,1
+	jge brick_alive
+	;insert code for respawn right here
+	jmp re_enterbrickloop
+	brick_alive:
+	call collision,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[edi +BULLET.X],[edi +BULLET.Y],1,1,1
+	cmp eax,1
+	jl re_enterbrickloop
+	mov [esi+BRICK.ALIVE],0
+	mov [edi+BULLET.active],0
+	re_enterbrickloop:
+	add esi, edx
+	loop brickloop
+	exit_bullet_collision:
+	ret
+ENDP checkbrickbulletcollision
 
 PROC towergame
 	ARG 	@@key:byte
@@ -662,12 +689,11 @@ PROC towergame
 		call lowertower
 		continuegameloop:
 		
-		call update_bullet
 		call wait_VBLANK, 3
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
 		;
-		jz SHORT towergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+		jz SHORT re_towergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 		
 		
 		mov ah, 00h ;get key from buffer (ascii code in al)
@@ -776,8 +802,8 @@ PROC towergame
 		mov [edi + BULLET.active], 1
 		
 		MouseNC:
-		
-		
+		call checkbrickbulletcollision
+		call update_bullet
 	jne	towergameloop ; if doesnt find anything restart
 	
 	UP:
