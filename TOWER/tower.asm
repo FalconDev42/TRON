@@ -542,33 +542,61 @@ PROC update_bullet
 	USES esi,eax ,ebx,ecx,edx,edi
 	mov esi, offset bullet
 	mov eax , [esi+BULLET.active]
+	mov edx, offset safezone
 	cmp eax,1
 	jl exitbullet
     mov eax, [esi+BULLET.X]
 	add eax, [esi+BULLET.velX]
 	
-	cmp eax,0
-	jl bullet_leaves
-	cmp eax,SCRWIDTH
-	jg bullet_leaves
+	cmp eax,[edx]
+	jl bullet_bounces_X
+	cmp eax,[edx+4]
+	jg bullet_bounces_X
 	
 	mov [esi+BULLET.X],eax
-	
+	return_bullet_x:
 	mov eax, [esi+BULLET.Y]
 	add eax, [esi+BULLET.velY]
 	
-	cmp eax,0
-	jl SHORT bullet_leaves
+	cmp eax,[edx+8]
+	jl SHORT bullet_bounces_Y
 	cmp eax,SCRHEIGHT
-	jg SHORT bullet_leaves
+	jg SHORT bullet_bounces_Y
 	
 	mov [esi+BULLET.Y],eax
 	jmp SHORT exitbullet
 	
+	bullet_bounces_X:
+	mov edi, [esi+BULLET.bounces]
+	cmp edi, 3
+	jge bullet_leaves
+	mov ebx, [esi+BULLET.velX]
+	neg ebx
+	mov [esi+BULLET.velX], ebx
+	mov eax, [esi+BULLET.X]
+	add eax, ebx
+	mov [esi+BULLET.X],eax
+	inc edi
+	mov [esi+BULLET.bounces], edi
 	
+	jmp return_bullet_x
+	
+	bullet_bounces_Y:
+	mov edi, [esi+BULLET.bounces]
+	cmp edi, 3
+	jge bullet_leaves
+	mov ebx, [esi+BULLET.velY]
+	neg ebx
+	mov [esi+BULLET.velY], ebx
+	mov eax, [esi+BULLET.Y]
+	add eax, ebx
+	mov [esi+BULLET.Y],eax
+	inc edi
+	mov [esi+BULLET.bounces], edi
+	jmp exitbullet
 	bullet_leaves:
 	mov [esi+BULLET.active],0
-	
+	mov [esi+BULLET.bounces],0
 	exitbullet:
 	ret
 ENDP update_bullet
@@ -605,6 +633,32 @@ PROC drawbrickentities
 	nobullet:
 	ret
 ENDP drawbrickentities		
+PROC respawnbricks; two ways to approach, either completely random, or as intended in the game, being that brick can only respawn if touching adjacent brick, now thats a tough one to solve aint gonna lie broski
+	USES eax,ebx,ecx,edx,esi,edi
+	mov esi, offset bricks
+	mov ecx, [brickamount]
+	mov edx, [bricksize]
+	respawnloop:
+	mov eax, [esi+BRICK.ALIVE]
+	cmp eax, 1
+	jge reenter_respawn_loop
+	mov ebx,[esi + BRICK.RES_CHANCE]
+	call randBetweenVal,0,100
+	cmp eax,ebx
+	jge no_respawn
+	mov [esi+BRICK.ALIVE],1
+	
+	jmp reenter_respawn_loop
+	no_respawn:
+	inc ebx
+	mov [esi + BRICK.RES_CHANCE],1
+	reenter_respawn_loop:
+	add esi, edx
+	loop respawnloop
+	ret
+ENDP respawnbricks
+
+
 
 PROC initialize_tower_player; give the correct starting
 	USES eax,ebx,esi
@@ -636,8 +690,38 @@ PROC lowertower
 	mov [esi+BRICK.Y],eax
 	add esi, edx
 	loop lower_brick_loop
+	mov ebx, [rotatecount]
+	cmp ebx,15; adjust value here to adjust speed of rotation
+	jg rotate_tower
+	add ebx, 1
+	mov [rotatecount], ebx
+	jmp skip_rotate
+	rotate_tower:
+	call rotatetower
+	skip_rotate:
 	ret
 ENDP lowertower
+PROC rotatetower
+	USES eax, ebx, ecx, edx, esi, edi
+	mov esi, offset bricks
+	mov ecx, [brickamount]
+	mov edx, [bricksize]
+	rotate_loop:
+	mov eax,[esi+BRICK.X]
+	add eax, [esi+BRICK.W]
+	cmp eax, [safezone+4]
+	jge right_to_left
+	mov [esi+BRICK.X],eax
+	jmp skip_L_to_R
+	right_to_left:
+	mov ebx,[safezone]
+	mov [esi+BRICK.X], ebx
+	skip_L_to_R:
+	add esi, edx
+	loop rotate_loop
+	call respawnbricks
+	ret
+ENDP rotatetower
 PROC checkbrickbulletcollision
 	USES eax,ebx,ecx,edx,esi,edi
 	mov esi, offset bricks
@@ -923,6 +1007,8 @@ DATASEG
 	player		PLAYER		1		dup(< ,,,>)
 	playeramount dd 1;both this and the size shouldnt matter, atleast not how the procedures are set up now
 	playersize dd 16;
+	
+	rotatecount dd 0
 	
 	
 	playerspawn dd 160,180; stores position of player
