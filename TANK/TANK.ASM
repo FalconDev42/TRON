@@ -246,67 +246,7 @@ PROC initiateTanks
 	mov ebx, [TankSize]
 	mov esi, [@@PtrInitArray]
 	
-	
-	; mov [edi + TANK.X], 140
-	; mov [edi + TANK.Y], 150
-	
-	; mov [edi + TANK.velX], 0
-	; mov [edi + TANK.velY], 0
-	
-	; mov [edi + TANK.W], 25
-	; mov [edi + TANK.H], 20
-	
-	; mov [edi + TANK.alive], 1
-	; mov [edi + TANK.col], 1
-	
-	; mov edx, SCRWIDTH
-	; sub edx, [edi + TANK.W]
-	
-	; add edi, ebx
-	
 	mov ecx, [TotalOfTanks]
-	; dec ecx
-	
-	; resetXTank:
-	; xor eax, eax
-	
-	; TanksInitLoop:
-	; cmp eax, SCRWIDTH
-	; jg resetXTank
-	
-	; mov [edi + TANK.X], eax
-	; mov [edi + TANK.Y], 0
-	
-	; mov [edi + TANK.velX], 0
-	; mov [edi + TANK.velY], 0
-	
-	; mov [edi + TANK.W], 25
-	; mov [edi + TANK.H], 20
-	
-	; mov [edi + TANK.alive], 1
-	; mov [edi + TANK.col], 14
-	
-	; add eax, edx
-	
-	; add edi, ebx
-	; loop TanksInitLoop
-	
-	; mov edi, [@@PtrTanks]
-	; add edi, ebx
-	
-	; mov edx, SCRHEIGHT
-	; sub edx, [edi + TANK.H]
-	
-	; mov ecx, [TotalOfTanks]
-	; shr ecx, 1
-	
-	; mov eax, edx
-	
-	; TanksInitLoopY:
-	; mov [edi + TANK.Y], eax
-	
-	; add edi, ebx
-	; loop TanksInitLoopY
 	
 	TanksInitLoop:
 	
@@ -324,7 +264,7 @@ PROC initiateTanks
 	mov [edi + TANK.velY], 0
 	
 	mov [edi + TANK.W], 400	; 25 shl 4
-	mov [edi + TANK.H], 320	; 20 shl 4
+	mov [edi + TANK.H], 400;320	; 20 shl 4
 	
 	mov [edi + TANK.alive], 1
 	
@@ -346,14 +286,14 @@ ENDP initiateTanks
 ; 	* draws the rectangle from position (x0,y0) with
 ;	  positive width 'w' and height 'h', with color "col"
 PROC drawRectangle
-	ARG 	@@x0:word, @@y0:word, @@w:word, @@h:word, @@col: byte
+	ARG 	@@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
 	USES 	eax, ecx, edx, edi, ebx
 
 	; Compute the index of the rectangle's top left corner
-	movzx eax, [@@y0]
+	mov eax, [@@y0]
 	mov edx, SCRWIDTH
 	mul edx ;multiply EAX by EDX, store in EAX
-	add	ax, [@@x0]
+	add	eax, [@@x0]
 	
 	;call print, eax
 
@@ -365,14 +305,14 @@ PROC drawRectangle
 	
 	;sub edi, 3200
 	; Plot the top horizontal edge.
-	movzx edx, [@@w]	; store width in edx for later reuse
+	mov edx, [@@w]	; store width in edx for later reuse
 	mov	ecx, edx
-	mov	al,[@@col]
+	mov	eax,[@@col]
 	
 	;call print, edi
 	
 	;rep stosb
-	movzx ebx, [@@h]
+	mov ebx, [@@h]
 	@@horLoop:
 		mov [edi], al
 		inc edi
@@ -383,7 +323,7 @@ PROC drawRectangle
 	;add edi, 7136;wierd offset to align vertical with horizontal
 	
 	; plot both vertical edges
-	movzx ecx, [@@h]
+	mov ecx, [@@h]
 	@@vertLoop:
 		mov	[edi], al		; left edge
 		mov	[edi + edx - 1], al	; right edge
@@ -437,7 +377,6 @@ PROC drawFilledRectangle
 	mov ecx, edx
 	
 	dec ebx
-	
 	cmp ebx, 0
 	jge @@startRectDraw
 	
@@ -1349,7 +1288,7 @@ PROC selectiveBackgroundFiller
 	shr edx, SCALARBITSHIFT
 	shr esi, SCALARBITSHIFT
 	
-	call drawFilledRectangle, eax, ebx, edx, esi, 0
+	call drawFilledRectangle, eax, ebx, edx, esi, 0		; cannot be removed because then visual glitches if mouse glides over it
 	
 	;noBackgroundResetNeededTank:
 	add edi, [TankSize]
@@ -1369,7 +1308,7 @@ PROC selectiveBackgroundFiller
 	shr edx, SCALARBITSHIFT
 	shr esi, SCALARBITSHIFT
 	
-	call drawRectangle, eax, ebx, edx, esi, 0
+	call drawRectangle, eax, ebx, edx, esi, 0		; cannot be removed because then visual glitches if mouse glides over it
 	
 	add edi, [BulletSize]
 	loop BulletsBackgoundLoop
@@ -1691,7 +1630,7 @@ Tanks			TANK		5	dup	(<,,,,,,,>)
 TankSize	 	dd 			32
 TotalOfTanks	dd			5
 
-TankPosInitArr	dd				160, 150, 	0, 0, 	295, 0, 	0, 180, 	295, 180
+TankPosInitArr	dd				160, 150, 	0, 0, 	295, 0, 	0, 175, 	295, 175
 
 Bullets 		BULLET		5	dup	(<,,,,,,,>)
 BulletSize	 	dd 			36
