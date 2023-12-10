@@ -101,13 +101,9 @@ PROC updatespider_bullet
 		cmp eax, 1; check to see if spider is alive, if not reset x and y to spawn locations, if want to completely randomize this can write new function
 		
 		jge spider_alive
-		
-		mov eax, [esi+SPIDER.RES_X]
-		mov [esi+SPIDER.X],eax
-		mov eax , [esi+SPIDER.RES_Y]
-		mov [esi+SPIDER.Y],eax
-		mov [esi+SPIDER.ALIVE],1
-		
+		;call randomize_spawn
+		call respawn_spider,esi
+		;mov [esi+SPIDER.ALIVE],1; set spider on alive
 		spider_alive:
 		
 		mov edx,offset bullet
@@ -125,14 +121,14 @@ PROC updatespider_bullet
 	
 		nocollision:; from here starts movement sequence 
 		call randBetweenVal, 0, 10 ; find random value between 0 and 10, to decide whether movement in x-axis random or not
-		cmp eax, 6; can change value here to change percentage of true or random moves
+		cmp eax, 3; can change value here to change percentage of true or random moves
 		jl truemove_x
 		jge randommove_x
 		
 		RETURN_X_CHECK:
 		
 		call randBetweenVal, 0, 10
-		cmp eax, 6; can change value here to change percentage of true or random moves
+		cmp eax, 3; can change value here to change percentage of true or random moves
 		jl truemove_y
 		jge randommove_y
 		
@@ -226,6 +222,35 @@ PROC updatespider_bullet
 	exitbullet:
 	ret
 ENDP updatespider_bullet
+
+PROC respawn_spider; seems to semi work, dont think it actually does tho, so hmmm, also seems to effect bullet physics
+	ARG	@@spiderptr: dword
+	USES esi, ebx,eax
+	mov esi, [@@spiderptr]
+	mov ebx, [esi+SPIDER.RES_CHANCE]
+	call randBetweenVal,0,100
+	cmp ebx,eax
+	jl no_res
+	call randomize_spawn
+	mov [esi+SPIDER.RES_CHANCE],0
+	mov [esi+SPIDER.ALIVE],1; set spider on alive
+	mov eax, [esi+SPIDER.RES_X]
+	mov [esi+SPIDER.X],eax
+	mov eax , [esi+SPIDER.RES_Y]
+	mov [esi+SPIDER.Y],eax
+	
+	jmp exit_res
+	no_res:
+	inc ebx
+	mov [esi+SPIDER.RES_CHANCE],ebx
+	
+	
+	
+	exit_res:
+	ret
+ENDP respawn_spider
+
+
 
 PROC randBetweenVal
 	ARG @@min:dword, @@max:dword
@@ -404,7 +429,7 @@ PROC spiderterrain
 	sub ebx,ecx;finds the height
 	
 	call fillBackground,0
-	call drawFilledRectangle,edx,ecx,eax,ebx,30; need to find color for green, this rectangle will be safe zone/victory zone 
+	call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
 	ret
 ENDP spiderterrain
 
@@ -418,7 +443,8 @@ PROC setupspider
 	mov  ax, 0001h  ; show mouse
 	int  33h
 	
-	call initialize_spider_player,100,100
+	call initialize_spider_player,160,160
+	call randomize_spawn
 	call initialize_spider_spider
 	call spiderterrain
 	gameloop:
@@ -467,112 +493,7 @@ PROC terminateProcess
 	int 21h
 	ret
 ENDP terminateProcess
-PROC collisiondet; will be checking in a three by three area around the players position
-	ARG x_pos:dword,y_pos:dword, mode:dword; mode shows for what it is used, 1 for player-spider detection, 2 for spider-spider collsion
-	USES ebx, ecx, edx, edi, esi
-    mov eax, [mode] ; Initialize collision flag
-	push eax
-	
-    ; Get spider count, spider and player positions
-    mov ecx, [spideramount]
-    mov edx, offset spiders
-    mov esi, [x_pos]
-	mov ebx, [y_pos]
-    ; Check for collisions
-    xor edi, edi ; Clear index register for spider loop
-	spiderloop:
-	;xor eax,eax
-    mov edi, [edx+SPIDER.X] ; Get spider x
-    pop eax
-	cmp eax,1
-	jge spiderskip_x
-	push eax
-	xor eax,eax
-	
-	
-	cmp edi, esi ; Check player x 
-    je SHORT sameaxis_x
-	spiderskip_x:
-	push eax
-	xor eax,eax
-	
-	inc edi
-    cmp edi, esi ; Check player x + 1
-    je SHORT sameaxis_x
-	inc edi
-	cmp edi, esi ; Check player x + 2
-    je sameaxis_x
-    sub edi, 3
-    cmp edi, esi ; Check player x - 1
-    je sameaxis_x
-	sub edi,1
-	 cmp edi, esi ; Check player x - 2
-    je sameaxis_x
-	return_x:
-    ; Move to the next spider
-	
-    ; If no collision detected, exit
-    ;spiderloop_y:
-	mov edi, eax ; stores current value for eax to edi, as will be using eax to check which mode
-	pop eax; gets the mode number
-	cmp eax,1
-	jge spiderskip_y
-	push eax;pushes it back to stack
-	xor eax,eax
-	mov eax,edi
-	mov edi, [edx+SPIDER.Y]
-	jge spiderskip_y
-    cmp edi, ebx ; Check player y, for some reason if i dont add this it doesnt collision doesnt trigger using the other checks if plpayer doesnt move, if they do move and collide in movement it does, dont know why that happens isnt logical
-    je sameaxis_y
-	spiderskip_y:
-	inc edi
-    cmp edi, ebx ; Check player y + 1
-    je sameaxis_y
-	inc edi
-    cmp edi, ebx ; Check player y + 2
-    je sameaxis_y
-    sub edi, 3
-    cmp edi, ebx ; Check player y - 1
-    je sameaxis_y
-	sub edi,1
-	sub edi, ebx ; Check player y - 2
-    je sameaxis_y
-	return_y:
-	jmp collisiontest
-    ; Move to the next spider
-	restartloop:
-    add edx, [spidersize]
-    dec ecx ; Decrease spider count
-    jnz spiderloop ; Jump if not zero to continue checking collisions
-	;xor eax,eax
-	jmp exitcollisiondet
-	
-	;jmp exitcollisiondet
-	;call terminateProcess
-	sameaxis_x:
-    add eax,1
-    ; If collision detected, perform actions here, like terminating the process
-	jmp return_x
-	sameaxis_y:
-	add eax,1
-	jmp return_y
-	
-	collisiontest:
-	cmp eax,2
-	jl restartloop
-	jge collisionTRUE
-	
 
-	
-	collisionTRUE:
-	;call terminateProcess
-	mov eax,1
-	jmp getouttahere
-	exitcollisiondet:
-	mov eax,0
-	getouttahere:
-	ret
-ENDP collisiondet
 
 
 PROC wait_VBLANK
@@ -654,71 +575,73 @@ PROC drawspider; will be drawing the spider as a cross similar to 'X'
     ret
 ENDP drawspider
 
-PROC initialize_spider_spider; will read from an array, and set semi random start positions for the spiders
+PROC randomize_spawn
 	USES eax,ebx,ecx,edx,esi,edi
 	mov esi, offset spiders
 	mov edi, offset spiderpos
 	mov ecx, [spideramount]
 	mov ebx, [spidersize]
-	spider_init_loop:
+	spider_rand_spawn_loop:
 		mov edx,[edi]
-		sub edx,5; add this step because randbetweenval cant give negative(i think not sure)
-		call randBetweenVal,0,10
+		sub edx,10; add this step because randbetweenval cant give negative(i think not sure)
+		call randBetweenVal,0,20
 		add edx,eax
-		cmp edx,0
+		cmp edx,1
 		jl base_X; base being the starting position assigned in the array spiderpos
-		cmp edx, SCRWIDTH
+		cmp edx, SCRWIDTH-1
 		jg base_X
-		mov [esi +SPIDER.X], edx
+		mov [esi +SPIDER.RES_X], edx
 		jmp exit_X
 		
 		base_X:
 		mov edx,[edi]
-		mov [esi +SPIDER.X], edx
+		mov [esi +SPIDER.RES_X], edx
 		
 		exit_X:
 	
 		add edi,4
 		mov edx,[edi]
-		sub edx,5
-		call randBetweenVal,0,10
+		sub edx,10
+		call randBetweenVal,0,20
 		add edx,eax
-		cmp edx,0
+		cmp edx,1
 		jl base_Y; base being the starting position assigned in the array spiderpos
-		cmp edx, SCRHEIGHT
+		cmp edx, SCRHEIGHT-1
 		jg base_X
-		mov [esi +SPIDER.Y], edx
+		mov [esi +SPIDER.RES_Y], edx
 		jmp exit_Y
 	
 		base_Y:
 		mov edx,[edi]
-		mov [esi +SPIDER.Y], edx
+		mov [esi +SPIDER.RES_Y], edx
 		
 		exit_Y:
 		
 		add edi,4
-		mov [esi+SPIDER.ALIVE],1; set spider on alive
+		
 		add esi, ebx; iterate to the next spider
 	
-	loop spider_init_loop
-	xor esi,esi
-	xor edi,edi
-	mov esi, offset spiders
-	mov edi, offset spiderpos
-	mov ecx, [spideramount]
-	set_spider_respawn:
-		mov edx, [edi]
-		mov [esi + SPIDER.RES_X], edx
-			
-		add edi, 4
-		mov edx, [edi]
-		mov [esi + SPIDER.RES_Y], edx
-		add edi,4
-		
-		mov [esi + SPIDER.ALIVE], 1; set spider on alive
-		add esi, ebx; iterate to the next spider
+	loop spider_rand_spawn_loop
+	ret
 
-	loop set_spider_respawn
+ENDP randomize_spawn
+
+
+
+
+PROC initialize_spider_spider; will read from an array, and set semi random start positions for the spiders
+	USES eax,ebx,ecx,edx,esi,edi
+	mov esi, offset spiders
+	mov ecx, [spideramount]
+	mov ebx, [spidersize]
+	spider_init_loop:
+		mov eax, [esi+SPIDER.RES_X]
+		mov [esi+SPIDER.X],eax
+		mov eax , [esi+SPIDER.RES_Y]
+		mov [esi+SPIDER.Y],eax
+		mov [esi+SPIDER.ALIVE],1; set spider on alive
+		add esi, ebx
+	loop spider_init_loop
 	ret
 ENDP initialize_spider_spider
 PROC isInInterval
@@ -920,7 +843,6 @@ PROC initialize_spider_player; give the correct starting
 	USES eax,ebx,esi
 	mov eax, [@@Start_X]
 	mov ebx, [@@Start_Y]
-	USES eax,ebx,esi
 	mov esi, offset player
 	mov [esi+player.X],eax
 	mov [esi+player.Y],ebx
@@ -940,13 +862,13 @@ PROC spidergame
 		mov ebx,[esi+PLAYER.Y]
 		call DrawEntities
 		call checkendcollision
-		push esi
-		xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
-		cmp eax,1
-		jge exit; make a loss screen from this
-		pop esi
+		;push esi
+		;xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
+		;cmp eax,1
+		;jge exit; make a loss screen from this
+		;pop esi
 		
-		call wait_VBLANK, 3
+		call wait_VBLANK, 2
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
 		; nieuwe movement shit van call: use shit from MYKEYB procedure, check in examples
@@ -1155,12 +1077,13 @@ STRUC SPIDER
 	ALIVE dd 1; 1 will be for alive, 0 for dead
 	RES_X dd 0; will be the respawn point of the spider once it dies
 	RES_Y dd 0; same as RES_X except now the Y coordinate
+	RES_CHANCE dd 0; implement a chance for respawn instead of just instant res
 	COL dd 1
 ENDS SPIDER
 
 STRUC PLAYER
-	X dd 100
-	Y dd 100
+	X dd 160
+	Y dd 160
 	ALIVE dd 1
 	COL dd 15
 ENDS PLAYER
@@ -1203,7 +1126,7 @@ DATASEG
 	
 	spiderpos dd 10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
 	entitypos dd 100,100,10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90
-	safezone dd 150,170,90,110 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
+	safezone dd 150,170,60,80 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
 	victory db "you won!", 13, 10, '$'
 	

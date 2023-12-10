@@ -638,8 +638,13 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	mov esi, offset bricks
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
+	mov edi, offset player
 	respawnloop:
 	mov eax, [esi+BRICK.ALIVE]
+	cmp eax, 1
+	jge reenter_respawn_loop
+	
+	call collision, [esi + BRICK.X],[esi + BRICK.Y],[esi + BRICK.W],[esi + BRICK.H],[edi +PLAYER.X],[edi +PLAYER.Y],1,1,8
 	cmp eax, 1
 	jge reenter_respawn_loop
 	mov ebx,[esi + BRICK.RES_CHANCE]
@@ -657,7 +662,47 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	loop respawnloop
 	ret
 ENDP respawnbricks
-
+;PROC respawnbricks_correct
+;	uses eax,ebx,ecx,edx,esi,edi
+;	mov esi, offset bricks
+;	mov ecx, [brickamount]
+;	mov edx, [bricksize]
+;	xor eax,eax ; will use eax to keep track of position
+;	
+;	respawnloop:
+;	mov eax, [esi+BRICK.ALIVE]
+;	cmp eax, 1
+;	jge reenter_respawn_loop
+;	cmp edx,144;insert 6*24
+;	jl skip_up_check
+;	mov ebx, offset bricks
+;	mov edi, esi
+;	sub edi, 144
+;	add ebx, edi
+;	mov edi,[ebx+BRICK.ALIVE]
+;	cmp edi,1
+;	jl left_check
+;	inc [esi+BRICK.RES_CHANCE]
+;	left_check:
+;	mov ebx, offset bricks
+;	mov edi, esi
+;	sub edi, 24
+;	add ebx, edi
+;	mov edi,[ebx+BRICK.ALIVE]
+;	cmp edi,1
+;	jl right_check
+;	inc [esi+BRICK.RES_CHANCE]
+;	jl skip
+;	
+;	
+;	
+;	
+;	
+;	reenter_respawn_loop:
+;	add esi, edx
+;	loop respawnloop
+;	ret
+;ENDP respawnbricks_correct
 
 
 PROC initialize_tower_player; give the correct starting
@@ -693,12 +738,14 @@ PROC lowertower
 	mov ebx, [rotatecount]
 	cmp ebx,15; adjust value here to adjust speed of rotation
 	jg rotate_tower
-	add ebx, 1
+	inc ebx
 	mov [rotatecount], ebx
 	jmp skip_rotate
 	rotate_tower:
 	call rotatetower
+	mov [rotatecount], 0
 	skip_rotate:
+	call respawnbricks
 	ret
 ENDP lowertower
 PROC rotatetower
@@ -719,7 +766,7 @@ PROC rotatetower
 	skip_L_to_R:
 	add esi, edx
 	loop rotate_loop
-	call respawnbricks
+
 	ret
 ENDP rotatetower
 PROC checkbrickbulletcollision
@@ -767,7 +814,7 @@ PROC towergame
 		call endcollisioncheck_bricks
 		inc edx
 		
-		cmp edx,5; change the amount to change dificulty, will decide how often the whole shit descends
+		cmp edx,10; change the amount to change dificulty, will decide how often the whole shit descends
 		jl continuegameloop
 		mov edx,0
 		call lowertower
