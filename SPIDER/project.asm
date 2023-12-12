@@ -19,7 +19,7 @@ ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
-
+IMGSIZE EQU 5*5
 RAND_A = 1103515245
 RAND_C = 12345
 CODESEG
@@ -88,7 +88,7 @@ PROC drawRectangle
 	ret
 ENDP drawRectangle
 	
-PROC updatespider_bullet
+PROC updatespider_bullet; controls behaviour of spiders, dead and alive, and bullet while active 
     USES eax, ebx, esi, edx,ecx,edi
     mov ebx, offset player;gets player position
     mov ecx, [spideramount]; counter for the amount of spiders we will iterate over
@@ -101,9 +101,7 @@ PROC updatespider_bullet
 		cmp eax, 1; check to see if spider is alive, if not reset x and y to spawn locations, if want to completely randomize this can write new function
 		
 		jge spider_alive
-		;call randomize_spawn
-		call respawn_spider,esi
-		;mov [esi+SPIDER.ALIVE],1; set spider on alive
+		jmp respawn_spider; had to use a jump, otherwise loop would become too large
 		spider_alive:
 		
 		mov edx,offset bullet
@@ -111,7 +109,7 @@ PROC updatespider_bullet
 		cmp eax,1; now check to see if bullet active, if not can skip whole collision action
 		jl nocollision
 		
-		call collision,[esi+SPIDER.X],[esi+SPIDER.Y],1,1,[edx+BULLET.X], [edx+BULLET.Y],1,1,1; check for collision between spider and bullet
+		call collision,[esi+SPIDER.X],[esi+SPIDER.Y],1,1,[edx+BULLET.X], [edx+BULLET.Y],1,1,3; check for collision between spider and bullet
 		
 		cmp eax, 1
 		jl nocollision
@@ -133,12 +131,12 @@ PROC updatespider_bullet
 		jge randommove_y
 		
 		RETURN_Y_CHECK:
-   
+   		reenterupdateloop:
         add esi, edi
-		;jmp updateloopreenter
+
 		loop updateloop;having the loop here is tooo far away, so need to work around it
 		
-        jmp SHORT exitspider
+        jmp  exitspider
 		
 		truemove_x:
 		mov edx, [esi + SPIDER.X] 
@@ -170,24 +168,43 @@ PROC updatespider_bullet
 		
 		movespiderLEFT:
 		dec edx
+		cmp edx, 3
+		jl RETURN_X_CHECK
 		mov [esi+SPIDER.X],edx
 		jmp RETURN_X_CHECK
 		
 		movespiderRIGHT:
 		inc edx
+		cmp edx, SCRWIDTH-3
+		jge RETURN_X_CHECK
 		mov [esi+SPIDER.X],edx
 		jmp RETURN_X_CHECK
 		
 		movespiderDOWN:
 		inc edx
+		cmp edx, SCRHEIGHT -3
+		jge RETURN_Y_CHECK
 		mov [esi+SPIDER.Y],edx
 		jmp RETURN_Y_CHECK
 		
 		movespiderUP:
 		dec edx
+		cmp edx, 3
+		jl RETURN_Y_CHECK
 		mov [esi+SPIDER.Y],edx
 		jmp RETURN_Y_CHECK
 		
+		respawn_spider:
+		call randomize_spawn
+		call collision,[esi+SPIDER.RES_X],[esi+SPIDER.RES_Y],1,1,[ebx + PLAYER.X],[ebx + PLAYER.Y],1,1,150
+		cmp eax,1
+		jge reenterupdateloop
+		mov [esi+SPIDER.ALIVE],1; set spider on alive
+		mov eax, [esi+SPIDER.RES_X]
+		mov [esi+SPIDER.X],eax
+		mov eax , [esi+SPIDER.RES_Y]
+		mov [esi+SPIDER.Y],eax
+		jmp spider_alive
 		exitspider:
 	;bullet
 	mov esi, offset bullet
@@ -223,32 +240,6 @@ PROC updatespider_bullet
 	ret
 ENDP updatespider_bullet
 
-PROC respawn_spider; seems to semi work, dont think it actually does tho, so hmmm, also seems to effect bullet physics
-	ARG	@@spiderptr: dword
-	USES esi, ebx,eax
-	mov esi, [@@spiderptr]
-	mov ebx, [esi+SPIDER.RES_CHANCE]
-	call randBetweenVal,0,100
-	cmp ebx,eax
-	jl no_res
-	call randomize_spawn
-	mov [esi+SPIDER.RES_CHANCE],0
-	mov [esi+SPIDER.ALIVE],1; set spider on alive
-	mov eax, [esi+SPIDER.RES_X]
-	mov [esi+SPIDER.X],eax
-	mov eax , [esi+SPIDER.RES_Y]
-	mov [esi+SPIDER.Y],eax
-	
-	jmp exit_res
-	no_res:
-	inc ebx
-	mov [esi+SPIDER.RES_CHANCE],ebx
-	
-	
-	
-	exit_res:
-	ret
-ENDP respawn_spider
 
 
 
@@ -270,97 +261,6 @@ PROC randBetweenVal
 	ret
 ENDP randBetweenVal
 
-;ROC ShootBullet
-;	ARG		@@PtrBullets:dword, @@Xstart:dword, @@Ystart:dword, @@Xend:dword, @@Yend:dword
-;	USES 	eax, ebx, ecx, edx, esi
-;	
-;	mov esi, [@@PtrBullets]
-;	
-;	mov edx, [@@Yend]
-;	sub edx, [@@Ystart]
-;	
-;	mov ecx, [@@Xend]
-;	sub ecx, [@@Xstart]
-;	
-;	cmp edx, 0	;calculating abs val of dx (delta y)
-;	jge PosD
-;	neg edx
-;	push -1
-;	jmp nextNegD
-;	PosD:
-;	push 1
-;	
-;	nextNegD:
-;	
-;	push edx
-;	
-;	cmp ecx, 0	;calculating abs val of cx (delta x)
-;	jge PosC
-;	neg ecx
-;	push -1
-;	jmp nextNegC
-;	PosC:
-;	push 1
-;	
-;	nextNegC:
-;	
-;	mov eax, ecx
-;	
-;	add ecx, edx	;aproximation of mag of delta vec |x|+|y|
-;	
-;	shr ecx, 2	;dividing by 4 to get magnitude of speed vector (k)
-;	
-;	cmp ecx, 0	;protection against division by 0
-;	je SHORT BulletCannotShoot
-;	
-;	xor edx, edx ; set EDX to zero
-;	div ecx ; eax result, edx remainder (A/k = a)
-;	
-;	pop edx
-;	cmp edx, 0
-;	jge XPositive
-;	neg eax
-;	XPositive:
-;	
-;	mov [esi + BULLET.velX], eax
-;	
-;	pop eax
-;	
-;	xor edx, edx ; set EDX to zero
-;	div ecx ; eax result, edx remainder (B/k = b)
-;	
-;	pop edx
-;	cmp edx, 0
-;	jge YPositive
-;	neg eax
-;	YPositive:
-;	
-;	mov [esi + BULLET.velY], eax
-;	
-;	mov ecx, [esi + BULLET.W]
-;	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
-;	
-;	mov eax, [@@Xstart]
-;	
-;	sub eax, ecx
-;	mov [esi + BULLET.X], eax		;first element in array is for player
-;	
-;	mov ecx, [esi + BULLET.H]
-;	shr ecx, 1		; divide with of bullet by 2 to get middle to place it in the middle of the tank
-;	
-;	mov eax, [@@Ystart]
-;	
-;	sub eax, ecx
-;	mov [esi + BULLET.Y], eax		;first element in array is for player
-;	
-;	mov [esi + BULLET.bounces], 0
-;	mov [esi + BULLET.active], 1
-;	
-;	BulletCannotShoot:
-;	
-;	ret
-;ENDP ShootBullet
-;
 PROC rand
     USES    ebx, ecx, edx
 	
@@ -418,7 +318,7 @@ PROC drawFilledRectangle
 	
 	ret
 ENDP drawFilledRectangle
-PROC spiderterrain
+PROC spiderterrain; draws the terrain around the map
 	USES eax,ebx,esi,edx,ecx
 	mov esi, offset safezone
 	mov eax,[esi+4];takes largest x-valkue
@@ -433,7 +333,7 @@ PROC spiderterrain
 	ret
 ENDP spiderterrain
 
-PROC setupspider
+PROC setupspider ; set up the game, this proc is mainly used as to keep the main clean
 	call setVideoMode,13h
 	NoMouse:
 	mov  ax, 0000h  ; reset mouse
@@ -442,13 +342,18 @@ PROC setupspider
 	jne  NoMouse
 	mov  ax, 0001h  ; show mouse
 	int  33h
+	;read data to draw the spider and player
+	call ReadFile, offset player_file, offset playerread, IMGSIZE 
+	call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
 	
-	call initialize_spider_player,160,160
-	call randomize_spawn
-	call initialize_spider_spider
+	call initialize_spider_player,160,160; sets start point of player
+	
+	call randomize_spawn; assign semi random spawn points to the spiders
+	call initialize_spider_spider; set the spiders on alive and assign them their spawns
+	
 	call spiderterrain
 	gameloop:
-	call spidergame,001Bh
+	call spidergame,001Bh;  exit button on esc
 	; in this need to implement time system, that or in the keystrojke section
 	jmp gameloop
 
@@ -517,63 +422,6 @@ PROC wait_VBLANK
 	
 	ret 
 ENDP wait_VBLANK
-
-PROC drawplayer; will be drawing the player as a cross similar to '+'
-    ARG x_player: dword, y_player: dword, color: dword
-    USES eax, ebx, ecx, edx, esi
-
-    mov eax, [x_player]
-    mov ebx, [y_player]
-    mov esi, [color]
-    mov ecx, eax
-    mov edx, ebx
-
-    ; Draw the five pixels to form a cross '+'
-    call drawDot, ecx, edx, esi  ; Center pixel
-    add ecx, 1
-    call drawDot, ecx, edx, esi  ; Right pixel
-    sub ecx, 2
-    call drawDot, ecx, edx, esi  ; Left pixel
-
-    ; Reset x-coordinate and adjust y-coordinate for the upper and lower pixels
-    mov ecx, eax
-    add edx, 1
-    call drawDot, ecx, edx, esi  ; Upper pixel
-    sub edx, 2
-    call drawDot, ecx, edx, esi  ; Lower pixel
-
-    ret
-ENDP drawplayer
-
-PROC drawspider; will be drawing the spider as a cross similar to 'X'
-	ARG x_spider: dword, y_spider: dword, color: dword
-    USES eax, ebx, ecx, edx, esi
-
-    mov eax, [x_spider]
-    mov ebx, [y_spider]
-    mov esi, [color]
-    mov ecx, eax
-    mov edx, ebx
-
-    ; Draw the five pixels to form a cross '+'
-    call drawDot, ecx, edx, esi  ; Center pixel
-    add ecx, 1
-	add edx,1
-    call drawDot, ecx, edx, esi  ; bottom right pixel
-    sub ecx, 2
-	sub edx ,2
-    call drawDot, ecx, edx, esi  ;  top left pixel
-
-    ; Reset x-coordinate and adjust y-coordinate for the upper and lower pixels
-    
-    add edx, 2
-    call drawDot, ecx, edx, esi  ; Upper -right pixel
-    sub edx, 2
-	add ecx,2
-    call drawDot, ecx, edx, esi  ; Lower-left  pixel
-
-    ret
-ENDP drawspider
 
 PROC randomize_spawn
 	USES eax,ebx,ecx,edx,esi,edi
@@ -808,7 +656,7 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	
 	
 	
-	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,0
+	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
 	cmp eax,1
 	jl no_victory_collision
 	; input code here for victory screen, for the moment just end game
@@ -822,7 +670,7 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	mov edx,[spidersize]
 	
 	spider_check_loop:
-	call collision,[edi+SPIDER.X],[edi+SPIDER.Y],1,1,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
+	call collision,[edi+SPIDER.X],[edi+SPIDER.Y],1,1,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,3
 	cmp eax,1
 	jge defeat
 	add edi, edx
@@ -855,18 +703,12 @@ PROC spidergame
 	USES 	eax, ebx,esi,edi	
 	mov esi, offset player
 	mov edi, offset bullet
-;	call spiderterrain;paint the canvas
 	spidergameloop:
 		call spiderterrain; activate if want to clear behind character
 		mov ecx,[esi+PLAYER.X]
 		mov ebx,[esi+PLAYER.Y]
 		call DrawEntities
 		call checkendcollision
-		;push esi
-		;xor eax,eax; have to push as for some reason collisiondet effects esi, although im not sure where
-		;cmp eax,1
-		;jge exit; make a loss screen from this
-		;pop esi
 		
 		call wait_VBLANK, 2
 		mov ah, 01h ; function 01h (check if key is pressed)
@@ -981,12 +823,13 @@ PROC spidergame
 		
 		MouseNC:
 		call updatespider_bullet
+		
 	jne	spidergameloop ; if doesnt find anything restart
 	
 	UP:
 	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx,2 ; checks borders
+	cmp ecx,3 ; checks borders
 	jl re_spidergameloop
 	
 	dec ecx ; moves position
@@ -994,7 +837,7 @@ PROC spidergame
 	jmp re_spidergameloop ;returns to wait for keypress
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx, SCRHEIGHT-2
+	cmp ecx, SCRHEIGHT-3
 	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
@@ -1003,7 +846,7 @@ PROC spidergame
 	LEFT:
 	;xor al,al
 	mov ecx, [esi+PLAYER.X]
-	cmp ecx,2
+	cmp ecx,3
 	jl re_spidergameloop
 	
 	dec ecx
@@ -1013,7 +856,7 @@ PROC spidergame
 	RIGHT:
 	;xor al,al
 	mov ecx,[esi+PLAYER.X]
-	cmp ecx, SCRWIDTH-2
+	cmp ecx, SCRWIDTH-3
 	jge re_spidergameloop
 	inc ecx
 	mov [esi+PLAYER.X],ecx
@@ -1024,16 +867,35 @@ PROC spidergame
 ENDP spidergame
 
 PROC DrawEntities
-	USES eax,esi,ecx,edx
+	USES eax,esi,ecx,edx,ebx,edi
 	mov esi, offset spiders
 	mov ecx, [spideramount]
 	mov edx, [spidersize]
+	
 	spiderdrawloop:
-	call drawspider, [esi + SPIDER.X], [esi + SPIDER.Y], 12  ; Color 1 (red); Call drawDot to draw the spider
+	mov eax, [esi+SPIDER.ALIVE]; check if alive
+	cmp eax,1
+	jl no_draw_spider
+	
+	mov edi, [esi+SPIDER.X]
+	sub edi, 2; to get the topleft corner
+	mov ebx,[esi+SPIDER.Y]
+	sub ebx, 2
+	call DrawIMG, offset spiderread, edi, ebx, 5, 5
+	no_draw_spider:
 	add esi, edx
 	loop spiderdrawloop
+	
+	
+	
 	mov esi, offset player
-	call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+	
+	mov edi, [esi+PLAYER.X]
+	sub edi, 2; to get the topleft corner
+	mov ebx,[esi+PLAYER.Y]
+	sub ebx, 2
+	call DrawIMG, offset playerread, edi, ebx, 5, 5
+	
 	mov esi, offset bullet
 	mov eax, [esi+BULLET.active]
 	cmp eax, 1
@@ -1042,6 +904,92 @@ PROC DrawEntities
 	bullet_inactive:
 	ret
 ENDP DrawEntities
+
+PROC ReadFile
+	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
+	USES eax, ebx, ecx, edx, esi, edi
+	
+	; open file, get filehandle in AX
+	mov al, 0 ; read only
+	mov edx, [@@filepathptr]
+	mov ah, 3dh
+	int 21h
+	
+	mov  edx, offset openErrorMsg
+	jc @@print_error ; carry flag is set if error occurs
+
+	; read file data 
+	mov bx, ax ; move filehandle to bx
+	mov ecx, [@@noofbytes]
+	mov edx, [@@dataptr]
+	mov ah, 3fh
+	int 21h
+
+	mov  edx, offset readErrorMsg
+	jc @@print_error
+	
+	; close file
+	mov ah, 3Eh
+	int 21h
+	
+	mov  edx, offset closeErrorMsg
+	jc @@print_error
+	
+	ret
+
+@@print_error:
+	call setVideoMode, 03h
+	mov  ah, 09h
+	int  21h
+	
+	mov	ah,00h
+	int	16h
+	call terminateProcess	
+ENDP ReadFile
+
+PROC DrawIMG
+	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax,edx
+	
+	mov eax, [@@y]
+	mov ecx, SCRWIDTH
+	mul ecx 		;multiply EAX by ECX, store in EAX
+	add	eax, [@@x]
+	
+	;call print, eax
+
+	; Compute top left corner address
+	mov edi, VMEMADR
+	add edi, eax
+	
+	mov esi, [@@IMGPtr]
+	mov ecx, [@@h]
+	
+	DrawLineOfIMG:
+	mov edx, ecx
+	mov ecx, [@@w]
+	rep movsb
+	
+	add edi, SCRWIDTH
+	sub edi, [@@w]
+	mov ecx, edx
+	loop DrawLineOfIMG
+	ret	
+ENDP DrawIMG
+
+PROC DrawBG
+	ARG	 @@dataptr: dword 
+	USES esi,edi,ecx
+	mov esi, [@@dataptr]
+	mov edi, VMEMADR
+	mov ecx, IMGSIZE
+	rep movsb	
+	ret	
+ENDP DrawBG
+
+
+
+
 start:
      sti            ; set The Interrupt Flag => enable interrupts
      cld            ; clear The Direction Flag
@@ -1059,6 +1007,8 @@ start:
 
 	mov ah,00h
 	int 16h
+	;call ReadFile, offset player_file, offset playerread, IMGSIZE 
+	;call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
 	call setupspider
 	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 	
 	mov ah,00h
@@ -1133,7 +1083,16 @@ DATASEG
 	lossmessage db "you lost!", 13, 10, '$'
 	
 	randSeed		dd			2003630
+	spider_file db "spider.bin", 0
+	player_file db "player.bin", 0
+	openErrorMsg db "could not open file", 13, 10, '$'
+	readErrorMsg db "could not read data", 13, 10, '$'
+	closeErrorMsg db "error during file closing", 13, 10, '$'
 	
+	
+UDATASEG
+	spiderread db IMGSIZE dup (?)
+	playerread db IMGSIZE dup (?)
 ; -------------------------------------------------------------------
 ; STACK
 ; -------------------------------------------------------------------
