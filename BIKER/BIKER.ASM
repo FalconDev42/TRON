@@ -255,7 +255,7 @@ PROC initiateBikers
 	mov edi, [@@PtrBikers]
 	mov esi, [@@PtrInitArray]
 	mov edx, [@@PtrVelInitArray]
-	mov ebx, [Bikersize]
+	mov ebx, [BikerSize]
 	mov ecx, [TotalOfBikers]
 	
 	BikersInitLoop:		; reset biker structs
@@ -490,6 +490,8 @@ PROC inputFromPlayer
 	
 	call rotateBikerLeft, edi
 	
+	jmp SHORT @@notpressed
+	
 	@@notleft:
 	cmp al, 's' ; down
 	jne SHORT @@notdown
@@ -514,9 +516,246 @@ PROC inputFromPlayer
 	ret
 ENDP inputFromPlayer
 
+
+MACRO ABSeax
+	cmp eax, 0
+	jg EAXIsPos
+	neg eax
+	EAXIsPos:
+ENDM ABSeax
+
+
+PROC BikerAI
+	ARG		@@PtrBikers:dword, @@PtrPlayGround:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrBikers]
+	mov ecx, [TotalOfBikers]
+	mov ebx, [BikerSize]
+	
+	add edi, ebx		; first biker is Player
+	
+	; find closest biker using manathan distance
+	; check in wich direction must move to minimize the smallest delta
+	; check if this direction is possible (that there is no line in the way)
+	; if not take possibility that minimizes distance if not possible take last possibility
+	
+	BikerAILoop:
+		push ecx
+		
+		mov ecx, [TotalOfBikers]
+		mov edx, [@@PtrBikers]
+		
+		push edx		; Player is default closest Biker
+		push SCRWIDTH
+		
+		BikerAILoop:	; find closest tank
+			cmp edi, edx	; edx is loops through differnet Bikers
+			je ThisBikerIsFurther
+			
+			mov eax, [edi + BIKER.X]
+			sub eax, [edx + BIKER.X]
+			
+			ABSeax
+			
+			mov esi, eax
+			
+			mov eax, [edi + BIKER.Y]
+			sub eax, [edx + BIKER.Y]
+			
+			ABSeax
+			
+			add eax, esi
+			
+			cmp [esp], eax
+			jl ThisBikerIsFurther
+			mov [esp], eax
+			mov [esp + 4], edx
+			ThisBikerIsFurther:
+			
+			add edx, ebx
+		loop BikerAILoop
+		
+		pop edx		; edx contains smallest distance
+		
+		pop esi		; esi conatains adress to closest Biker
+		
+		pop ecx
+		
+		mov eax, [edi + BIKER.X]
+		sub eax, [esi + BIKER.X]
+		ABSeax
+		
+		sub edx, eax		; eax contains deltaX and edx contains deltaY
+		
+		push [esi + BIKER.X]
+		push [esi + BIKER.Y]
+		push [esi + BIKER.velX]		; store the values of the struct to reset the biker if necessary
+		push [esi + BIKER.velY]
+		push [esi + BIKER.W]
+		push [esi + BIKER.H]
+
+		cmp edx, eax
+		jg deltaYIsBigger	; minimize smallest distance
+			
+		; deltaY is smaller
+		; move in Y
+		; first test if it is possible
+		cmp [edi + BIKER.velY], 0
+		jne otherOptionX2	; if not possible take other direction
+		
+		; Y should be possible: now decide on the direction
+		
+		mov eax, [esi + BIKER.Y]
+		cmp [edi + BIKER.Y], eax
+		jl TargetBikerIsTop
+		; target biker is downwards
+		call rotateBikerDown, esi		; this function changes speed and shape of biker
+		
+		jmp checkIfColisionY
+		
+		TargetBikerIsTop:
+		; target biker is upwards
+		call rotateBikerUp, esi		; this function changes speed and shape of biker
+		
+		checkIfColisionY:
+		call checkColorsInRectangle, [@@PtrPlayGround], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H]	; test if this orientation does not contain line
+		
+		cmp eax, 0		; returns 0 if no color in rect
+		jne otherOptionX
+		
+		; if color test pass then biker can move in this direction
+		
+		
+		jmp EndOfDirectionDecision
+		
+		deltaYIsBigger:
+		
+		; deltaY is bigger
+		; move in X
+		; first test if it is possible
+		cmp [edi + BIKER.velX], 0
+		jne otherOptionY	; if not possible take other direction
+		
+		; X should be possible: now decide on the direction
+		
+		mov eax, [esi + BIKER.X]
+		cmp [edi + BIKER.X], eax
+		jl TargetBikerIsLeft
+		
+		call rotateBikerRight, esi
+		
+		jmp checkIfColisionX
+			
+		TargetBikerIsLeft:
+		
+		call rotateBikerLeft, esi
+	
+		checkIfColisionX:
+		call checkColorsInRectangle, [@@PtrPlayGround], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H]	; test if this orientation does not contain line
+		
+		cmp eax, 0		; returns 0 if no color in rect
+		je EndOfDirectionDecision
+		
+		
+		; If here that means that best option is not possible due to colision
+		
+		; move in Y
+		; first check if going in same direction is an option
+		
+		mov [esi + BIKER.X], [esp + 4]
+		mov [esi + BIKER.Y], [esp + 8]
+		mov [esi + BIKER.velX], [esp + 12]	; reset to undo rotate
+		mov [esi + BIKER.velY], [esp + 16]
+		mov [esi + BIKER.W], [esp + 20]
+		mov [esi + BIKER.H], [esp + 24]
+		
+		otherOptionY:
+		
+		mov eax, [esi + BIKER.velY]	; moving in Y so only Y changes
+		imul eax, 10
+		
+		mov edx, eax
+		
+		add [esi + BIKER.Y], edx
+		
+		call checkColorsInRectangle, [@@PtrPlayGround], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H]	; test if this orientation does not contain line
+		
+		sub [esi + BIKER.Y], edx
+		
+		cmp eax, 0		; returns 0 if no color in rect
+		je EndOfDirectionDecision
+		
+		mov eax, [esi + BIKER.X]	; last option is to move away from target, if colision this means it was in-escapable
+		cmp [edi + BIKER.X], eax
+		jg TargetBikerIsLeftOposit
+		
+		call rotateBikerLeft, esi
+		
+		jmp checkIfColisionX
+			
+		TargetBikerIsLeftOposit:
+		
+		call rotateBikerRight, esi
+		
+		jmp EndOfDirectionDecision
+		
+		otherOptionX:
+		; move in X
+		
+		mov [esi + BIKER.X], [esp + 4]	; reset to undo rotate
+		mov [esi + BIKER.Y], [esp + 8]
+		mov [esi + BIKER.velX], [esp + 12]	; reset to undo rotate
+		mov [esi + BIKER.velY], [esp + 16]
+		mov [esi + BIKER.W], [esp + 20]
+		mov [esi + BIKER.H], [esp + 24]
+		
+		otherOptionX2:
+		
+		mov eax, [esi + BIKER.velX]	; moving in Y so only Y changes
+		imul eax, 10
+		
+		mov edx, eax
+		
+		add [esi + BIKER.X], edx
+		
+		call checkColorsInRectangle, [@@PtrPlayGround], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H]	; test if this orientation does not contain line
+		
+		sub [esi + BIKER.X], edx
+		
+		cmp eax, 0		; returns 0 if no color in rect
+		je EndOfDirectionDecision
+		
+		mov eax, [esi + BIKER.Y]		; last option is to move away from target, if colision this means it was in-escapable
+		cmp [edi + BIKER.Y], eax
+		jg TargetBikerIsTopOpposit
+		; target biker is downwards
+		call rotateBikerUp, esi		; this function changes speed and shape of biker
+		
+		jmp EndOfDirectionDecision
+		
+		TargetBikerIsTopOpposit:
+		; target biker is upwards
+		call rotateBikerDown, esi		; this function changes speed and shape of biker
+		
+		jmp EndOfDirectionDecision
+		
+		EndOfDirectionDecision:
+		add esp, 24		; pop out the things we had to store
+		
+		
+	
+	loop BikerAILoop
+	
+	ret
+ENDP BikerAI
+
+
 PROC checkColorsInRectangle
 	ARG 	@@PlayGroundPtr:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword
 	USES 	ebx, ecx, edx, edi, esi
+	
+	; return in eax 0 if only color was background (0)
 	
 	mov ecx, [@@x0]
 	shl ecx, 2
@@ -633,7 +872,7 @@ PROC moveBiker
 	
 	mov edi, [@@PtrBikers]
 	mov esi, [@@PtrPlayGround]
-	mov edx, [Bikersize]
+	mov edx, [BikerSize]
 	mov ecx, [TotalOfBikers]
 	
 	BikerColisionLoop:
@@ -770,7 +1009,7 @@ PROC selectiveBackgroundFiller
 	
 	mov edi, [@@PtrBikers]
 	mov esi, [@@PtrPlayGround]
-	mov ebx, [Bikersize]
+	mov ebx, [BikerSize]
 	mov edx, [TotalOfBikers]
 	
 	BikersBackgoundLoop:
@@ -844,7 +1083,7 @@ PROC endConditionBiker
 	USES 	edi, ebx, ecx
 	
 	mov edi, [@@PtrBikers]
-	mov ebx, [Bikersize]
+	mov ebx, [BikerSize]
 	mov ecx, [TotalOfBikers]
 	
 	xor eax, eax
@@ -984,7 +1223,7 @@ DATASEG
 randSeed		dd			2003630
 
 Bikers			BIKER		5	dup	(<,,,,,,,>)
-Bikersize	 	dd 			32
+BikerSize	 	dd 			32
 TotalOfBikers	dd			5
 
 BikerPosInitArr	dd				155, 150, 		10, 10, 		295, 10, 		10, 180, 		295, 180

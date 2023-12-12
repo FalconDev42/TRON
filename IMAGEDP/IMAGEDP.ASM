@@ -119,7 +119,7 @@ ENDP DrawBG
 
 PROC DrawIMG
 	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
-	USES esi, edi, ecx, eax
+	USES esi, edi, ecx, eax, edx
 	
 	mov eax, [@@y]
 	mov ecx, SCRWIDTH
