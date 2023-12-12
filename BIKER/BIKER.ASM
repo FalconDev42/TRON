@@ -2,13 +2,9 @@
 ; 80386
 ; 32-bit x86 assembly language
 ; TASM
-;
-; author:	Stijn Bettens, David Blinder
-; date:		25/09/2017
-; program:	Hello World!
 ; -------------------------------------------------------------------
 
-
+;Group: G20
 
 IDEAL
 P386
@@ -16,11 +12,13 @@ MODEL FLAT, C
 ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 
 ; compile-time constants (with macros)
-VMEMADR EQU 0A0000h	; video memory address
-SCRWIDTH EQU 320	; screen witdth
-SCRHEIGHT EQU 200	; screen height
-BACKGROUNDCOL EQU 0	; background color
-BIKERSPEED EQU 1	; Speed of Biker
+VMEMADR 		EQU 0A0000h	; video memory address
+SCRWIDTH 		EQU 320		; screen witdth
+SCRHEIGHT 		EQU 200		; screen height
+BACKGROUNDCOL 	EQU 0		; background color
+BIKERSPEED 		EQU 1		; Speed of Biker
+BIKERW			EQU 5
+BIKERH			EQU 11
 
 RAND_A = 1103515245
 RAND_C = 12345
@@ -198,35 +196,267 @@ PROC drawFilledRectangle
 	mov ecx, edx
 	
 	dec ebx
-	
 	cmp ebx, 0
 	jge @@startRectDraw
 	
 	ret
 ENDP drawFilledRectangle
 
+PROC drawFilledRectangleDWORD
+	ARG 	@@PtrStartScreen:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	
+	mov ecx, [@@x0]
+	shl ecx, 2
+	; Compute the index of the rectangle's top left corner
+	mov eax, [@@y0]
+	mov edx, SCRWIDTH * 4
+	mov esi, edx
+	mul edx ;multiply EAX by EDX, store in EAX
+	add	eax, ecx
+
+	; Compute top left corner address
+	mov edi, [@@PtrStartScreen]
+	add edi, eax
+	
+	; Plot the top horizontal edge.
+	mov edx, [@@w]	; store width in edx for later reuse
+	mov	ecx, edx
+	shl edx, 2
+	
+	mov ebx, [@@h]
+	;shl ebx, 2
+	
+	mov	eax,[@@col]
+	
+	@@startRectDraw:
+		mov [edi], eax
+		add edi, 4
+		loop @@startRectDraw
+	
+	sub edi, edx		; reset edi to left-top corner
+	add edi, esi
+	mov ecx, edx
+	shr ecx, 2
+	
+	dec ebx
+	
+	cmp ebx, 0
+	jge @@startRectDraw
+	
+	ret
+ENDP drawFilledRectangleDWORD
+
 PROC initiateBikers
-	ARG		@@PtrBikers:dword
+	ARG		@@PtrBikers:dword, @@PtrInitArray:dword, @@PtrVelInitArray:dword, @@PtrPlayGround:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov edi, [@@PtrBikers]
+	mov esi, [@@PtrInitArray]
+	mov edx, [@@PtrVelInitArray]
 	mov ebx, [Bikersize]
 	mov ecx, [TotalOfBikers]
 	
-	BikersShowLoop:
-	cmp [edi + BIKER.alive], 0
-	jne StillAlive
-		mov [edi + BIKER.col], 25
-	StillAlive:
+	BikersInitLoop:		; reset biker structs
 	
-	call drawFilledRectangle, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.col]
+	mov eax, [esi]
+	mov [edi + BIKER.X], eax
+	add esi, 4
+	
+	mov eax, [esi]
+	mov [edi + BIKER.Y], eax
+	add esi, 4
+	
+	mov eax, [edx]
+	mov [edi + BIKER.velX], eax
+	add edx, 4
+	
+	mov eax, [edx]
+	mov [edi + BIKER.velY], eax
+	add edx, 4
+	
+	cmp eax, 0
+	je BikerIsHorizontal
+	mov [edi + BIKER.W], BIKERW
+	mov [edi + BIKER.H], BIKERH
+	
+	jmp EndBikerRotationInit
+	BikerIsHorizontal:
+	mov [edi + BIKER.W], BIKERH
+	mov [edi + BIKER.H], BIKERW
+	
+	EndBikerRotationInit:
+	
+	mov [edi + BIKER.alive], 1
+	
+	mov [edi + BIKER.col], ecx
 	
 	add edi, ebx
-	loop BikersShowLoop
+	loop BikersInitLoop
+	
+	mov edi, [@@PtrPlayGround]
+	xor eax, eax
+	mov ecx, SCRWIDTH*SCRHEIGHT
+	rep stosd			; reset PlayGround
+	
+	
+	mov eax, 8
+	mov ecx, SCRWIDTH
+	mov edi, [@@PtrPlayGround]
+	
+	rep stosd
+	
+	;dec edi
+	
+	mov eax, 8h
+	mov ecx, SCRHEIGHT - 2
+	
+	LeftAndRightEdgeLoop:
+	mov [edi], eax
+	
+	add edi, SCRWIDTH * 4
+	
+	sub edi, 4
+	mov [edi], eax
+	add edi, 4
+	
+	loop LeftAndRightEdgeLoop
+	
+	mov eax, 8
+	mov ecx, SCRWIDTH
+	
+	rep stosd
 	
 	ret
 ENDP initiateBikers
 
+
+PROC rotateBikerUp
+	ARG		@@PtrBiker:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrBiker]
+	
+	mov eax, BIKERW
+	shr eax, 1
+	neg eax
+	
+	cmp [edi + BIKER.velX], 0
+	jg BikerWasGoingRightU
+	add eax, BIKERH
+	BikerWasGoingRightU:
+	
+	add eax, [edi + BIKER.X]
+	mov [edi + BIKER.X], eax
+	
+	mov eax, BIKERW
+	shr eax, 1
+	sub eax, BIKERH
+	add eax, [edi + BIKER.Y]
+	mov [edi + BIKER.Y], eax
+	
+	
+	mov [edi + BIKER.velX], 0
+	mov [edi + BIKER.velY], -BIKERSPEED
+	mov [edi + BIKER.W], BIKERW
+	mov [edi + BIKER.H], BIKERH
+	
+	ret
+ENDP rotateBikerUp
+
+PROC rotateBikerDown
+	ARG		@@PtrBiker:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrBiker]
+	
+	mov eax, BIKERW
+	shr eax, 1
+	neg eax
+	
+	cmp [edi + BIKER.velX], 0
+	jg BikerWasGoingRightD
+	add eax, BIKERH
+	BikerWasGoingRightD:
+	
+	add eax, [edi + BIKER.X]
+	mov [edi + BIKER.X], eax
+	
+	mov eax, BIKERW
+	shr eax, 1
+	;sub eax, BIKERH
+	add eax, [edi + BIKER.Y]
+	mov [edi + BIKER.Y], eax
+	
+	mov [edi + BIKER.velX], 0
+	mov [edi + BIKER.velY], BIKERSPEED
+	mov [edi + BIKER.W], BIKERW
+	mov [edi + BIKER.H], BIKERH
+	
+	ret
+ENDP rotateBikerDown
+
+PROC rotateBikerRight
+	ARG		@@PtrBiker:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrBiker]
+	
+	mov eax, BIKERW
+	shr eax, 1
+	add [edi + BIKER.X], eax
+	
+	mov eax, BIKERW
+	shr eax, 1
+	neg eax
+	
+	cmp [edi + BIKER.velY], 0
+	jg BikerWasGoingDownR
+	add eax, BIKERH
+	BikerWasGoingDownR:
+	
+	add [edi + BIKER.Y], eax
+	
+	mov [edi + BIKER.velX], BIKERSPEED
+	mov [edi + BIKER.velY], 0
+	mov [edi + BIKER.W], BIKERH
+	mov [edi + BIKER.H], BIKERW
+	
+	ret
+ENDP rotateBikerRight
+
+PROC rotateBikerLeft
+	ARG		@@PtrBiker:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
+	mov edi, [@@PtrBiker]
+	
+	mov eax, BIKERW
+	shr eax, 1
+	sub eax, BIKERH
+	;add eax, [edi + BIKER.X]
+	add [edi + BIKER.X], eax
+	
+	mov eax, BIKERW
+	shr eax, 1
+	neg eax
+	
+	cmp [edi + BIKER.velY], 0
+	jg BikerWasGoingDownL
+	add eax, BIKERH
+	BikerWasGoingDownL:
+	
+	add eax, [edi + BIKER.Y]
+	mov [edi + BIKER.Y], eax
+	
+	mov [edi + BIKER.velX], -BIKERSPEED
+	mov [edi + BIKER.velY], 0
+	mov [edi + BIKER.W], BIKERH
+	mov [edi + BIKER.H], BIKERW
+	
+	ret
+ENDP rotateBikerLeft
 
 ;modifies the speed of the ennemy Bikers
 ;Initiates a bullet if the mouse is clicked
@@ -236,7 +466,7 @@ PROC inputFromPlayer
 	
 	mov ah, 01h ; function 01h (check if key is pressed)
 	int 16h ; call keyboard BIOS
-	jz SHORT @@notpressed ;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+	jz @@notpressed ;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 	
 	mov ah, 00h ;get key from buffer (ascii code in al)
 	int 16h
@@ -244,31 +474,39 @@ PROC inputFromPlayer
 	mov edi, [@@PtrPlayerBiker]
 	
 	cmp al, 'z' ; up
-	jne @@notup
-	mov [edi + BIKER.velX], 0
-	mov [edi + BIKER.velY], -BIKERSPEED
+	jne SHORT @@notup
+	cmp [edi + BIKER.velY], 0
+	jne @@notpressed
+	
+	call rotateBikerUp, edi
+	
 	jmp @@notpressed
 	
 	@@notup:
 	cmp al, 'q' ; left
-	jne @@notleft
-	mov [edi + BIKER.velX], -BIKERSPEED
-	mov [edi + BIKER.velY], 0
-	jmp @@notpressed
+	jne SHORT @@notleft
+	cmp [edi + BIKER.velX], 0
+	jne @@notpressed
+	
+	call rotateBikerLeft, edi
 	
 	@@notleft:
 	cmp al, 's' ; down
-	jne @@notdown
-	mov [edi + BIKER.velX], 0
-	mov [edi + BIKER.velY], BIKERSPEED
-	jmp @@notpressed
+	jne SHORT @@notdown
+	cmp [edi + BIKER.velY], 0
+	jne SHORT @@notpressed
+	
+	call rotateBikerDown, edi
+	
+	jmp SHORT @@notpressed
 	
 	@@notdown:
 	cmp al, 'd' ; right
-	jne @@notpressed
-	mov [edi + BIKER.velX], BIKERSPEED
-	mov [edi + BIKER.velY], 0
+	jne SHORT @@notpressed
+	cmp [edi + BIKER.velX], 0
+	jne SHORT @@notpressed
 	
+	call rotateBikerRight, edi
 	;@@notright:
 	
 	@@notpressed:
@@ -276,294 +514,334 @@ PROC inputFromPlayer
 	ret
 ENDP inputFromPlayer
 
-PROC isInInterval
-	ARG		@@a:dword, @@z:dword, @@b:dword
-	USES	ecx, edx
-	
-	; test if a <= z <= b
-	; returns in eax 1 if true, returns 2 if smaller than both
-	
-	mov eax, [@@a]
-	mov ecx, [@@z]
-	mov edx, [@@b]
-	
-	cmp eax, ecx
-	jg NotInIntA
-	
-	cmp ecx, edx
-	jg NotInInt
-	
-	mov eax, 1
-	jmp endIntTest
-	
-	NotInIntA:
-	mov eax, 2
-	
-	jmp endIntTest
-	
-	NotInInt:
-	mov eax, 0
-	
-	endIntTest:
-	
-	ret
-ENDP isInInterval
-
-PROC colision
-	ARG		@@X1:dword, @@Y1:dword, @@W1:dword, @@H1:dword, @@X2:dword, @@Y2:dword, @@W2:dword, @@H2:dword, @@BufferSpace:dword
-	USES	ebx, ecx, edx, edi, esi
-	;eax return a value from 0 or other:
-	;0000 no colision, 0001 upper left colision of obj2, 0010 upper right colision of obj2, 0100 down left colision of obj2, 1000 down right colision of obj2
-	;if two or more bits set -> multiple corners in obj1
-	; BufferSpace: space to have between object and block
-	
-	;IMPORTANT: IF THE obj1 HAS A SMALLER RECTANGLE THAN obj2 THERE COULD BE NO COLISION DETECTED, IF IT IS POSSIBLE THAT obj1 IS SMALLER THAN obj2 RECALL THE PROC WITH INVERTED ORDER OF obj1 AND obj2
-	
-	xor esi, esi ; Stores return during PROC because eax gets used for calls
-				; 0000
-	
-	mov ebx, [@@X1]
-	mov edx, [@@X2]
-	
-	mov edi, ebx
-	
-	mov ecx, [@@BufferSpace]
-	
-	; test if upper left in obj1
-	
-	sub ebx, ecx			; X1 - Buffer
-	add edi, ecx			
-	add edi, [@@W1]			; X1 + Buffer + W1
-	
-	call isInInterval, ebx, edx, edi	; X1 - Buffer < X2 < X1 + Buffer + W1
-	cmp eax, 2							; X2 < X1 - Buffer : If true -> only right side could have colision
-	je testRight
-	
-	cmp eax, 1						; If eax is 1 then X2 is in interval
-	jne testRight						; if X2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
-	
-	; test if same holds for Y
-	
-	mov ebx, [@@Y1]
-	mov edx, [@@Y2]
-	
-	mov edi, ebx
-	
-	sub ebx, ecx			; Y1 - Buffer
-	add edi, ecx			
-	add edi, [@@H1]			; Y1 + Buffer + H1
-	
-	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 < Y1 + Buffer + H1
-	cmp eax, 1						; If eax is 1 then Y2 is in interval
-	jne LeftUpperNotInInt
-	;Both X and Y were in there respective interval so corner must be in obj1
-	xor esi, 1
-	
-	LeftUpperNotInInt:
-	;Since we are here we can test if down left is in obj1
-	add edx, [@@H2]
-	
-	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 + H2 < Y1 + Buffer + H1
-	cmp eax, 1						; I eax is 1 the X2 is in interval
-	jne testRight
-	xor esi, 4
-	
-	testRight:
-	
-	;cmp esi, 0						; if esi still 0 then we mustt have jumped from the first cmp
-	;je NoReInitNecessary
-	mov ebx, [@@X1]
-	mov edx, [@@X2]
-	
-	mov edi, ebx
-	
-	; test if upper right in obj1
-	
-	sub ebx, ecx			; X1 - Buffer
-	add edi, ecx			
-	add edi, [@@W1]			; X1 + Buffer + W1
-	
-	;NoReInitNecessary:
-	
-	add edx, [@@W2]
-	
-	call isInInterval, ebx, edx, edi	; X1 - Buffer < X2 + W2 < X1 + Buffer + W1
-	cmp eax, 2							; X2 + W2 < X1 - Buffer : If true -> no colision because obj2 completely to the right of obj1
-	je NoCol
-	
-	cmp eax, 1						; If eax is 1 then X2 + W2 is in interval
-	jne NoCol						; if X2 + W2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
-	
-	; test if same holds for Y
-	
-	mov ebx, [@@Y1]
-	mov edx, [@@Y2]
-	
-	mov edi, ebx
-	
-	sub ebx, ecx			; Y1 - Buffer
-	add edi, ecx			
-	add edi, [@@H1]			; Y1 + Buffer + H1
-	
-	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 < Y1 + Buffer + H1
-	cmp eax, 1							; If eax is 1 then Y2 is in interval
-	jne RightUpperNotInInt
-	; Both X and Y were in there respective interval so corner must be in obj1
-	xor esi, 2
-	
-	RightUpperNotInInt:
-	;Since we are here we can test if down right is in obj1
-	add edx, [@@H2]
-	
-	call isInInterval, ebx, edx, edi	; Y1 - Buffer < Y2 + H2 < Y1 + Buffer + H1
-	cmp eax, 1							; If eax is 1 then X2 is in interval
-	jne NoCol
-	
-	xor esi, 8
-	
-	NoCol:
-	
-	mov eax, esi					; put val of esi in eax for return value
-	ret
-ENDP colision
-
 PROC checkColorsInRectangle
-	ARG 	@@x0:dword, @@y0:dword, @@w:dword, @@h:dword
-	USES 	eax, ecx, edx, edi, ebx, esi
+	ARG 	@@PlayGroundPtr:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword
+	USES 	ebx, ecx, edx, edi, esi
 	
+	mov ecx, [@@x0]
+	shl ecx, 2
 	; Compute the index of the rectangle's top left corner
 	mov eax, [@@y0]
-	mov edx, SCRWIDTH
+	mov edx, SCRWIDTH * 4
 	mov esi, edx
 	mul edx ;multiply EAX by EDX, store in EAX
-	add	eax, [@@x0]
+	add	eax, ecx
 
 	; Compute top left corner address
-	mov edi, VMEMADR
+	mov edi, [@@PlayGroundPtr]
 	add edi, eax
 	
 	; Plot the top horizontal edge.
 	mov edx, [@@w]	; store width in edx for later reuse
 	mov	ecx, edx
-	mov	eax,[@@col]
+	shl edx, 2
 	
 	mov ebx, [@@h]
+	;shl ebx, 2
 	
-	@@startRectDraw:
-		mov [edi], al
-		inc edi
-		loop @@startRectDraw
+	xor	eax, eax
+	
+	@@checkRect:
+		or eax, [edi]
+		add edi, 4
+		loop @@checkRect
 	
 	sub edi, edx		; reset edi to left-top corner
 	add edi, esi
 	mov ecx, edx
+	shr ecx, 2
 	
 	dec ebx
 	
 	cmp ebx, 0
-	jge @@startRectDraw
+	jge @@checkRect
 	
 	ret
 ENDP checkColorsInRectangle
 
+PROC drawLine
+	ARG 	@@PlayGroundPtr:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@VelX:dword, @@VelY:dword, @@col:dword
+	USES 	eax, ebx, ecx, edx, edi
+	
+	mov ecx, [@@x0]
+	shl ecx, 2
+	;Compute the index of the rectangle's top left corner
+	mov eax, [@@y0]
+	mov edx, SCRWIDTH * 4
+	mov ebx, edx
+	mul edx ;multiply EAX by EDX, store in EAX
+	add	eax, ecx
+
+	;Compute top left corner address
+	mov edi, [@@PlayGroundPtr]
+	add edi, eax
+	
+	mov eax, [@@h]
+	shr eax, 1	;div by 2 to get center but also mul by 4 to work with dwords
+	mul ebx	;horizontal center of bike in eax
+	
+	cmp [@@VelX], 0
+	je VelIsVert
+	jg VelXIsPos
+	add edi, eax
+	add edi, 4
+	mov eax, [@@w]
+	shl eax, 2
+	add edi, eax	; right of bike
+	jmp EndDrawLine
+	
+	VelXIsPos:
+	add edi, eax
+	sub edi, 4			; left of bike
+	jmp EndDrawLine
+	
+	VelIsVert:
+	mov eax, [@@w]
+	shr eax, 1		;div by 2 to get center but also mul by 4 to work with dwords
+	shl eax, 2		; if just shl 1 there is a residual bit on the first place that gives wrong byte to write to
+	add edi, eax	;top of bike
+	
+	cmp [@@VelY], 0
+	je DontDrawLine
+	jl VelYIsNeg
+	sub edi, ebx	;top of bike
+	;sub edi, ebx
+	jmp EndDrawLine
+	
+	VelYIsNeg:
+	mov eax, [@@h]
+	inc eax
+	mul ebx
+	add edi, eax	; bottom of bike
+	
+	EndDrawLine:
+	
+	mov eax, [@@col]
+	mov [edi], eax
+	
+	DontDrawLine:
+	
+	ret
+ENDP drawLine
+
 PROC moveBiker
-	ARG		@@PtrBikers:dword
+	ARG		@@PtrBikers:dword, @@PtrPlayGround:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	; each bike has its own color different from the background, check if color on wich the bike will be drawn background is
 	; if not then kill biker else move biker forward
 	
 	mov edi, [@@PtrBikers]
+	mov esi, [@@PtrPlayGround]
 	mov edx, [Bikersize]
 	mov ecx, [TotalOfBikers]
 	
 	BikerColisionLoop:
 		cmp [edi + BIKER.alive], 0
-		je skipBiker
+		je SHORT skipBikerDead
 		
 		mov eax, [edi + BIKER.X]
 		add eax, [edi + BIKER.velX]
-		mov esi, eax
 		mov ebx, [edi + BIKER.Y]
 		add ebx, [edi + BIKER.velY]
 		
-		call checkColorsInRectangle, eax, ebx, [edi + BIKER.W], [edi + BIKER.H]
-		
+		call checkColorsInRectangle, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H]
+		;xor eax, eax
 		cmp eax, 0 ; if eax is not equal to 0 then there is a color in the future rectangle so biker must die
 		jne BikerIsDead
-		mov [edi + BIKER.X], esi
+		mov eax, [edi + BIKER.X]
+		add eax, [edi + BIKER.velX]
+		
+		mov [edi + BIKER.X], eax
 		mov [edi + BIKER.Y], ebx
 		
-		jmp skipBiker
+		call drawFilledRectangleDWORD, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.col]
+		call drawLine, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
+		
+		jmp SHORT skipBikerDead
 		BikerIsDead:
 		mov [edi + BIKER.alive], 0
 		
-		skipBiker:
+		skipBikerDead:
 	
 	add edi, edx
 	loop BikerColisionLoop
 	
 	ret
-ENDP moveEntities
+ENDP moveBiker
+
+PROC EraseLine
+	ARG 	@@PlayGroundPtr:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@VelX:dword, @@VelY:dword, @@col:dword
+	USES 	eax, ebx, ecx, edx, edi
+	
+	
+	mov ecx, [@@x0]
+	shl ecx, 2
+	;Compute the index of the rectangle's top left corner
+	mov eax, [@@y0]
+	mov edx, SCRWIDTH * 4
+	mov ebx, edx
+	mul edx ;multiply EAX by EDX, store in EAX
+	add	eax, ecx
+
+	;Compute top left corner address
+	mov edi, [@@PlayGroundPtr]
+	add edi, eax
+	
+	mov eax, [@@h]
+	shr eax, 1	;div by 2 to get center but also mul by 4 to work with dwords
+	mul ebx	;horizontal center of bike in eax
+	
+	cmp [@@VelX], 0
+	je VelLineIsVert
+	jg VelXLineIsPos
+	add edi, eax
+	add edi, 4
+	mov eax, [@@w]
+	shl eax, 2
+	add edi, eax	; right of bike
+	jmp FoundEndLine
+	
+	VelXLineIsPos:
+	add edi, eax
+	sub edi, 4			; left of bike
+	jmp FoundEndLine
+	
+	VelLineIsVert:
+	mov eax, [@@w]
+	shr eax, 1		;div by 2 to get center but also mul by 4 to work with dwords
+	shl eax, 2		; if just shl 1 there is a residual bit on the first place that gives wrong byte to write to
+	add edi, eax	;top of bike
+	
+	cmp [@@VelY], 0
+	jl VelYLineIsNeg
+	sub edi, ebx	;top of bike
+	;sub edi, ebx
+	jmp FoundEndLine
+	
+	VelYLineIsNeg:
+	mov eax, [@@h]
+	inc eax
+	mul ebx
+	add edi, eax	; bottom of bike
+	
+	FoundEndLine:
+	
+	
+	mov eax, [@@col]
+	cmp [edi], eax
+	jne EndLineReset
+
+	ResetPixelOfLine:
+	xor ebx, ebx
+	mov [edi], ebx
+
+	cmp[edi - 4], eax
+	jne LineIsNotLeft
+	sub edi, 4
+	jmp ResetPixelOfLine
+	LineIsNotLeft:
+
+	cmp[edi + 4], eax
+	jne LineIsNotRight
+	add edi, 4
+	jmp ResetPixelOfLine
+	LineIsNotRight:
+
+	cmp[edi - 4 * SCRWIDTH], eax
+	jne LineIsNotTop
+	sub edi, 4 * SCRWIDTH
+	jmp ResetPixelOfLine
+	LineIsNotTop:
+
+	cmp[edi + 4 * SCRWIDTH], eax
+	jne EndLineReset
+	add edi, 4 * SCRWIDTH
+	jmp ResetPixelOfLine
+	EndLineReset:
+	
+	ret
+	
+ENDP EraseLine
 
 PROC selectiveBackgroundFiller
-	ARG		@@PtrBikers:dword, @@PtrBullets:dword
-	USES 	ebx, ecx, edi
+	ARG		@@PtrBikers:dword, @@PtrPlayGround:dword
+	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov edi, [@@PtrBikers]
+	mov esi, [@@PtrPlayGround]
 	mov ebx, [Bikersize]
-	mov ecx, [TotalOfBikers]
+	mov edx, [TotalOfBikers]
 	
 	BikersBackgoundLoop:
 	cmp [edi + BIKER.alive], 0
-	je SHORT noBackgroundResetNeededBiker
+	;jmp NoLineReset
+	jne NoLineReset
+		
+		;if line reset:
+		; find pixel where line was drawn: check if color equal to that of dead biker
+		; check surrounding pixels
+		; if all checks return false every pixel of line has been erased
+		; else repeat
+		
+		call EraseLine, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
+	NoLineReset:
 	
-	call drawFilledRectangle, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], BACKGROUNDCOL
-	
-	noBackgroundResetNeededBiker:
-	add edi, ebx
-	loop BikersBackgoundLoop
-	
-	mov	edi, [@@PtrBullets]
-	mov ebx, [BulletSize]
-	mov ecx, [TotalOfBullets]
-	
-	BulletsBackgoundLoop:
-	; cannot ignore non active bullets because they may still be drawn
-	call drawFilledRectangle, [edi + BULLET.X], [edi + BULLET.Y], [edi + BULLET.W], [edi + BULLET.H], BACKGROUNDCOL
+	call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
 	
 	add edi, ebx
-	loop BulletsBackgoundLoop
+	dec edx
+	cmp edx, 0
+	jg BikersBackgoundLoop
 	
 	ret
 ENDP selectiveBackgroundFiller
 
 PROC show
-	ARG		@@PtrBikers:dword
+	ARG		@@PtrPlayGround:dword, @@PtrPlayGround:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
-	mov edi, [@@PtrBikers]
-	mov ebx, [Bikersize]
-	mov ecx, [TotalOfBikers]
+	mov esi, [@@PtrPlayGround]
+	mov edi, VMEMADR
+	mov ecx, SCRWIDTH*SCRHEIGHT
+	mov ebx, [TotalOfBikers]
+	
+	xor eax, eax
 	
 	BikersShowLoop:
-	cmp [edi + BIKER.alive], 0
-	jne StillAlive
-		mov [edi + BIKER.col], 25
-	StillAlive:
+	mov eax, [esi]
 	
-	call drawFilledRectangle, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.col]
+	cmp eax, ebx
+	je PlayerColor
+	cmp al, 0
+	je NoColorChange
+	mov al, 14
+	mov [edi], al		; Ennemy color
+	jmp EndPixelUpdate
 	
-	add edi, ebx
+	PlayerColor:
+	mov al, 1
+	mov [edi], al		; Player color
+	jmp EndPixelUpdate
+	
+	NoColorChange:
+	mov [edi], al
+	
+	EndPixelUpdate:
+	
+	;mov [edi], al
+	
+	inc edi
+	add esi, 4
 	loop BikersShowLoop
 	
 	ret
 ENDP show
 
+;returns a value in eax; test if eax = 10000(bin) then player wins, if eax < 10000(bin) ennemies win
 PROC endConditionBiker
 	ARG 	@@PtrBikers:dword
 	USES 	edi, ebx, ecx
-	; returns a value in eax; test if eax = 10000(bin) then player wins, if eax < 10000(bin) ennemies win
 	
 	mov edi, [@@PtrBikers]
 	mov ebx, [Bikersize]
@@ -633,22 +911,25 @@ start:
 	push ds
 	pop es
 	
-	call	setVideoMode,13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
+	call	setVideoMode, 13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
 	
 	
 	mov edi, offset Bikers
-	call initiateBikers, edi
+	mov edx, offset BikerPosInitArr
+	mov eax, offset BikerVelInitArr
+	mov esi, offset PlayGround
+	call initiateBikers, edi, edx, eax, esi
 	
-	mov ecx, 5000
+	mov ecx, 1000
 	drawLoop:
 	
-	call selectiveBackgroundFiller, edi
+	call selectiveBackgroundFiller, edi, esi
 	
 	call inputFromPlayer, edi
 	
-	call moveEntities, edi
+	call moveBiker, edi, esi
 	
-	call show, edi
+	call show, edi, esi
 	
 	call	wait_VBLANK, 1
 	
@@ -677,7 +958,6 @@ start:
 	int 21h
 	
 	EndBikerGame:
-	;call showPalette
 
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call	terminateProcess
@@ -691,8 +971,8 @@ STRUC BIKER
 	Y		dd 100
 	velX 	dd 0
 	velY 	dd 0
-	W		dd 23
-	H		dd 20
+	W		dd BIKERW
+	H		dd BIKERH
 	alive 	dd 1
 	col 	dd 1
 ENDS BIKER
@@ -706,6 +986,11 @@ randSeed		dd			2003630
 Bikers			BIKER		5	dup	(<,,,,,,,>)
 Bikersize	 	dd 			32
 TotalOfBikers	dd			5
+
+BikerPosInitArr	dd				155, 150, 		10, 10, 		295, 10, 		10, 180, 		295, 180
+BikerVelInitArr	dd				0, -BIKERSPEED,	BIKERSPEED, 0, 	0, BIKERSPEED,	0, -BIKERSPEED, -BIKERSPEED, 0
+
+PlayGround		dd 			SCRWIDTH*SCRHEIGHT dup (0)
 
 WinMsg			db 	"You WON!", 13, 10, '$'
 LoseMsg			db 	"You LOST", 13, 10, '$'
