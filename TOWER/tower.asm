@@ -210,15 +210,20 @@ PROC towerterrain
 	mov ecx,[esi+8]
 	sub ebx,ecx;finds the height
 	
-	call fillBackground,15
-	call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
-	call drawRectangle,0,0,edx,SCRHEIGHT,16
-	call drawRectangle,0,0,SCRWIDTH,ecx,16
+	call fillBackground,16
 	
-	mov eax,[esi+4];takes largest x-valkue
-	mov ebx, SCRWIDTH
-	sub ebx,eax
-	call drawRectangle,eax,0,ebx,SCRHEIGHT,16
+	add ecx,ebx
+	inc ecx
+	call drawFilledRectangle,edx,ecx,eax,SCRHEIGHT,15
+	;call drawFilledRectangle,0,0,SCRWIDTH,ecx,16
+	; for some reason the top right corner flashes, not at all pleasant
+	;mov eax,[esi+4];takes largest x-valkue
+	;mov ebx, SCRWIDTH
+	;sub ebx,eax
+	;call drawFilledRectangle,eax,0,ebx,SCRHEIGHT,16
+	dec ecx
+	sub ecx,ebx
+	call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
 	ret
 ENDP towerterrain
 
@@ -519,21 +524,23 @@ PROC drawplayer; will be drawing the player as a cross similar to '+'
 ENDP drawplayer
 PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
 	USES eax,ebx,ecx,edx,edi,esi
-	mov eax, offset bricks
+	mov edi, offset bricks
 	mov ebx, offset brickmatrix
 	mov ecx, [brickamount]
 	mov edx, [bricksize]; doint it statically rn, to save edx and headache
 	brick_init_loop:
 	mov esi,[ebx]
-	mov [eax+BRICK.X],esi
+	mov [edi+BRICK.X],esi
 	add ebx,4
 	mov esi,[ebx]
-	mov [eax+BRICK.Y],esi
+	mov [edi+BRICK.Y],esi
 	add ebx,4
-	mov [eax+BRICK.W],8
-	mov [eax+BRICK.H],6
-	mov [eax+BRICK.ALIVE],1
-	add eax, edx
+	mov [edi+BRICK.W],8
+	mov [edi+BRICK.H],6
+	mov [edi+BRICK.ALIVE],1
+	call randBetweenVal,30,45
+	mov [edi +BRICK.COL],eax
+	add edi, edx
 	loop brick_init_loop
 	
 	ret
@@ -618,8 +625,8 @@ PROC drawbrickentities
 	mov edi,[esi+BRICK.X]
 	mov ebx,[esi+BRICK.Y]
 	
-	;call randBetweenVal,1,14
-	call drawRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],12
+	call randBetweenVal,2,10
+	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]
 	check_return:
 	add esi, edx
 	loop drawloop
@@ -662,48 +669,6 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	loop respawnloop
 	ret
 ENDP respawnbricks
-;PROC respawnbricks_correct
-;	uses eax,ebx,ecx,edx,esi,edi
-;	mov esi, offset bricks
-;	mov ecx, [brickamount]
-;	mov edx, [bricksize]
-;	xor eax,eax ; will use eax to keep track of position
-;	
-;	respawnloop:
-;	mov eax, [esi+BRICK.ALIVE]
-;	cmp eax, 1
-;	jge reenter_respawn_loop
-;	cmp edx,144;insert 6*24
-;	jl skip_up_check
-;	mov ebx, offset bricks
-;	mov edi, esi
-;	sub edi, 144
-;	add ebx, edi
-;	mov edi,[ebx+BRICK.ALIVE]
-;	cmp edi,1
-;	jl left_check
-;	inc [esi+BRICK.RES_CHANCE]
-;	left_check:
-;	mov ebx, offset bricks
-;	mov edi, esi
-;	sub edi, 24
-;	add ebx, edi
-;	mov edi,[ebx+BRICK.ALIVE]
-;	cmp edi,1
-;	jl right_check
-;	inc [esi+BRICK.RES_CHANCE]
-;	jl skip
-;	
-;	
-;	
-;	
-;	
-;	reenter_respawn_loop:
-;	add esi, edx
-;	loop respawnloop
-;	ret
-;ENDP respawnbricks_correct
-
 
 PROC initialize_tower_player; give the correct starting
 	USES eax,ebx,esi
@@ -724,7 +689,6 @@ PROC lowertower
 	inc ebx
 	mov [safezone+8],eax
 	mov [safezone+12],ebx
-	;add code here for the bricks
 	xor eax,eax
 	mov esi, offset bricks
 	mov ecx, [brickamount]
@@ -802,25 +766,24 @@ PROC towergame
 	ARG 	@@key:byte
 	USES 	eax,ecx,edx, ebx,esi,edi	
 	mov esi, offset player
-;	call spiderterrain;paint the canvas
 	mov ebx, offset safezone
 	xor edx,edx
 	towergameloop:
+		
 		call towerterrain; activate if want to clear behind character
-		;mov ecx,[esi+PLAYER.X]
-		;mov ebx,[esi+PLAYER.Y]
 		
 		call drawbrickentities
 		call endcollisioncheck_bricks
 		inc edx
-		
+		call wait_VBLANK, 1
+		call checkbrickbulletcollision
 		cmp edx,10; change the amount to change dificulty, will decide how often the whole shit descends
 		jl continuegameloop
 		mov edx,0
 		call lowertower
 		continuegameloop:
 		
-		call wait_VBLANK, 3
+		
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
 		;
@@ -846,7 +809,8 @@ PROC towergame
 		re_towergameloop:
 		
 		mov edi, offset bullet
-	
+		; getting an error here that the bullet slows down the tower relative to when there is no bullet present
+		; cant seem to find where=> will keep bullet alive, yet throw it to 1,1 with 0 velocity if it is 
 		cmp [edi + BULLET.active], 0
 		jg  MouseNC
 		
@@ -931,9 +895,10 @@ PROC towergame
 		
 		mov [edi + BULLET.bounces], 0
 		mov [edi + BULLET.active], 1
-		
+		jmp skip_MouseNC
 		MouseNC:
-		call checkbrickbulletcollision
+		call wait_VBLANK,4; tried adding this to compensate for the large gap in speed, somewhat works
+		skip_MouseNC:
 		call update_bullet
 	jne	towergameloop ; if doesnt find anything restart
 	
@@ -1064,7 +1029,7 @@ DATASEG
 	bricks		BRICK	18		dup(< ,,,>)
 	brickamount dd 18
 	bricksize dd 24
-	brickmatrix dd 136,41,144,41,152,41,160,41,168,41,176,41,136,47,144,47,152,47,160,47,168,47,176,47,136,53,144,53,152,53,160,53,168,53,176,53
+	brickmatrix dd 136,41,144,41,152,41,160,41,168,41,176,41,136,48,144,48,152,48,160,48,168,48,176,48,136,55,144,55,152,55,160,55,168,55,176,55
 	
 	bullet		BULLET 1		dup(<,,,,,,,>)
 	
