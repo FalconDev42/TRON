@@ -561,6 +561,7 @@ PROC TankAI
 	ARG		@@PtrTanks:dword, @@PtrBullets:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
+	mov edi, [@@PtrTanks]
 	mov ecx, [TotalOfTanks]
 	
 	add edi, [TankSize]
