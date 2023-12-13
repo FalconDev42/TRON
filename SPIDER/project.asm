@@ -12,7 +12,7 @@ IDEAL
 P386
 MODEL FLAT, C
 ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
-
+;INCLUDE "spider.inc"
 ; -------------------------------------------------------------------
 ; CODE
 ; -------------------------------------------------------------------
@@ -670,9 +670,13 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	mov edx,[spidersize]
 	
 	spider_check_loop:
+	mov eax, [edi+SPIDER.ALIVE]
+	cmp eax,1
+	jl dead_spider
 	call collision,[edi+SPIDER.X],[edi+SPIDER.Y],1,1,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,3
 	cmp eax,1
 	jge defeat
+	dead_spider:
 	add edi, edx
 	loop spider_check_loop
 	jmp exit_collision
