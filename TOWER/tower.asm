@@ -88,40 +88,6 @@ PROC drawRectangle
 	ret
 ENDP drawRectangle
 
-PROC showPalette
-	USES 	eax, ecx, edi
-
-	; Initialize video memory address.
-	mov	edi, VMEMADR
-	
-	
-	mov ecx, SCRHEIGHT
-	@@vertLoop:
-		push ecx
-		mov ecx, 63
-		mov al, 0
-		@@horLoop:
-			;linewidth 5px
-			push ecx
-			mov ecx, 4
-			
-			@@lineloop:
-				mov [edi], al
-				inc edi
-				loop @@lineloop
-				
-			inc al
-			
-			pop ecx
-			
-			loop @@horLoop
-		sub edi, 252
-		add edi, SCRWIDTH
-		pop ecx
-		loop @@vertLoop
-	ret
-ENDP showPalette
-
 PROC drawFilledRectangle
 	ARG 	@@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
 	USES 	eax, ecx, edx, edi, ebx, esi
@@ -548,9 +514,9 @@ ENDP initialize_bricks
 PROC update_bullet
 	USES esi,eax ,ebx,ecx,edx,edi
 	mov esi, offset bullet
-	mov eax , [esi+BULLET.active]
+	mov eax, [esi+BULLET.active]
 	mov edx, offset safezone
-	cmp eax,1
+	cmp eax, 1
 	jl exitbullet
     mov eax, [esi+BULLET.X]
 	add eax, [esi+BULLET.velX]
@@ -558,20 +524,7 @@ PROC update_bullet
 	cmp eax,[edx]
 	jl bullet_bounces_X
 	cmp eax,[edx+4]
-	jg bullet_bounces_X
-	
-	mov [esi+BULLET.X],eax
-	return_bullet_x:
-	mov eax, [esi+BULLET.Y]
-	add eax, [esi+BULLET.velY]
-	
-	cmp eax,[edx+8]
-	jl SHORT bullet_bounces_Y
-	cmp eax,SCRHEIGHT
-	jg SHORT bullet_bounces_Y
-	
-	mov [esi+BULLET.Y],eax
-	jmp SHORT exitbullet
+	jl return_bullet_x
 	
 	bullet_bounces_X:
 	mov edi, [esi+BULLET.bounces]
@@ -586,7 +539,21 @@ PROC update_bullet
 	inc edi
 	mov [esi+BULLET.bounces], edi
 	
-	jmp return_bullet_x
+	return_bullet_x:
+	
+	mov [esi+BULLET.X],eax
+	
+	mov eax, [esi+BULLET.Y]
+	add eax, [esi+BULLET.velY]
+	
+	cmp eax,[edx+8]
+	jl SHORT bullet_bounces_Y
+	cmp eax,SCRHEIGHT
+	jg SHORT bullet_bounces_Y
+	
+	mov [esi+BULLET.Y],eax
+	jmp SHORT exitbullet
+	
 	
 	bullet_bounces_Y:
 	mov edi, [esi+BULLET.bounces]
@@ -612,7 +579,6 @@ PROC drawbrickentities
 	USES eax,ebx,ecx,edx,edi,esi
 	
 	;mov esi, offset bricks
-	xor esi,esi
 	mov esi, offset bricks
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
@@ -625,7 +591,7 @@ PROC drawbrickentities
 	mov edi,[esi+BRICK.X]
 	mov ebx,[esi+BRICK.Y]
 	
-	call randBetweenVal,2,10
+	call randBetweenVal,2,10		; je gebruikt de return ni
 	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]
 	check_return:
 	add esi, edx
@@ -636,7 +602,7 @@ PROC drawbrickentities
 	mov eax, [edi+BULLET.active]
 	cmp eax,1
 	jl nobullet
-	call drawDot,[edi+BULLET.X],[edi+BULLET.Y],1,1,[edi+BULLET.COL]
+	call drawDot,[edi+BULLET.X],[edi+BULLET.Y],[edi+BULLET.COL]
 	nobullet:
 	ret
 ENDP drawbrickentities		
@@ -663,7 +629,7 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	jmp reenter_respawn_loop
 	no_respawn:
 	inc ebx
-	mov [esi + BRICK.RES_CHANCE],1
+	mov [esi + BRICK.RES_CHANCE],1 ; zou dit niet moet stijgen met ebx ?? deze moet ook reset worden als de block respawned
 	reenter_respawn_loop:
 	add esi, edx
 	loop respawnloop
@@ -689,13 +655,13 @@ PROC lowertower
 	inc ebx
 	mov [safezone+8],eax
 	mov [safezone+12],ebx
-	xor eax,eax
+
 	mov esi, offset bricks
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
 	lower_brick_loop:
 	mov eax, [esi+BRICK.Y]
-	add eax,1
+	inc eax
 	mov [esi+BRICK.Y],eax
 	add esi, edx
 	loop lower_brick_loop
@@ -751,8 +717,8 @@ PROC checkbrickbulletcollision
 	jmp re_enterbrickloop
 	brick_alive:
 	call collision,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[edi +BULLET.X],[edi +BULLET.Y],1,1,1
-	cmp eax,1
-	jl re_enterbrickloop
+	cmp eax,0
+	je re_enterbrickloop
 	mov [esi+BRICK.ALIVE],0
 	mov [edi+BULLET.active],0
 	re_enterbrickloop:
@@ -778,10 +744,10 @@ PROC towergame
 		call wait_VBLANK, 1
 		call checkbrickbulletcollision
 		cmp edx,10; change the amount to change dificulty, will decide how often the whole shit descends
-		jl continuegameloop
-		mov edx,0
+		;jl continuegameloop	; edx start bij 0 dan word 1 en dan als het kleiner is dan 10 opnieuw 0?? (btw deze jump is de reden dat de tower plotseling trager naar beneden ging)
+		mov edx,0																						 ;(edx wordt wss ergens verandert waardoor het enkel gebeurde wanneer de bullet geactiveerd werd)
 		call lowertower
-		continuegameloop:
+		;continuegameloop:
 		
 		
 		mov ah, 01h ; function 01h (check if key is pressed)
@@ -804,7 +770,7 @@ PROC towergame
 		je DOWN
 		cmp al,113; checks for Q
 		je LEFT
-		cmp al,100; checks for D
+		cmp al,100; checks for D		; gaat moeten geswitched worden naar azerty je kan 'd' gebruiken voor de keycode ipv een getal
 		je RIGHT
 		re_towergameloop:
 		
@@ -816,7 +782,7 @@ PROC towergame
 		
 		xor ecx, ecx
 		xor edx, edx
-		xor ebx,ebx
+		xor ebx, ebx
 		mov  ax, 0003h  ; get mouse position and buttonstatus
 		int  33h        ; -> BX CX DX
 		
@@ -897,7 +863,7 @@ PROC towergame
 		mov [edi + BULLET.active], 1
 		jmp skip_MouseNC
 		MouseNC:
-		call wait_VBLANK,4; tried adding this to compensate for the large gap in speed, somewhat works
+		;call wait_VBLANK,4; tried adding this to compensate for the large gap in speed, somewhat works
 		skip_MouseNC:
 		call update_bullet
 	jne	towergameloop ; if doesnt find anything restart
@@ -944,6 +910,7 @@ PROC towergame
 	cmp ecx, eax
 	pop eax
 	jge re_towergameloop
+	
 	inc ecx
 	mov [esi+PLAYER.X],ecx
 	jmp re_towergameloop
@@ -967,7 +934,6 @@ start:
 	mov ah,00h
 	int 16h
 	;call setVideoMode,13h
-	;call showPalette
 	call setuptower
 	
 	mov ah,00h
@@ -1007,15 +973,14 @@ STRUC BULLET
 	velY 	dd 0
 	bounces	dd 0
 	active 	dd 0
-	COL 	dd 30
+	COL 	dd 1
 	W		dd 3
 ENDS BULLET
 
 DATASEG
 
-	msg	db "Hello User! Welcome to the spider game, press any button to continue.", 13, 10, '$'
+	msg	db "Hello User! Welcome to the tower game, press any button to continue.", 13, 10, '$'
 	
-	palette		db 768 dup (?)
 	player		PLAYER		1		dup(< ,,,>)
 	playeramount dd 1;both this and the size shouldnt matter, atleast not how the procedures are set up now
 	playersize dd 16;
