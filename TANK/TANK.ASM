@@ -609,7 +609,7 @@ PROC TankAI
 	push eax
 	
 	call randBetweenVal, 10, 80
-	cmp eax, 15					; chance that AI Tank moves towards player increases as the player apprauches the player
+	cmp eax, 15					; chance that AI Tank moves towards player
 	pop eax
 	jg AITankNoMove
 	
