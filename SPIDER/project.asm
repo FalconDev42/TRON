@@ -19,7 +19,10 @@ ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
+
 IMGSIZE EQU 5*5
+SPIDER_TRUE_MOVE EQU 10; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
+
 RAND_A = 1103515245
 RAND_C = 12345
 CODESEG
@@ -119,14 +122,14 @@ PROC updatespider_bullet; controls behaviour of spiders, dead and alive, and bul
 	
 		nocollision:; from here starts movement sequence 
 		call randBetweenVal, 0, 10 ; find random value between 0 and 10, to decide whether movement in x-axis random or not
-		cmp eax, 3; can change value here to change percentage of true or random moves
+		cmp eax, SPIDER_TRUE_MOVE; can change value here to change percentage of true or random moves
 		jl truemove_x
 		jge randommove_x
 		
 		RETURN_X_CHECK:
 		
 		call randBetweenVal, 0, 10
-		cmp eax, 3; can change value here to change percentage of true or random moves
+		cmp eax, SPIDER_TRUE_MOVE; can change value here to change percentage of true or random moves
 		jl truemove_y
 		jge randommove_y
 		
