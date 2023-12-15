@@ -20,6 +20,13 @@ VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
 
+TOWER_SIZE EQU 60 * 20
+PLAYER_SIZE EQU 5*5
+
+
+TOWER_SPEED EQU 10  ; decides how fast the tower descends, the lower the number the faster it descends, and thus the harder the game
+ROTATE_SPEED EQU 1;decides how fast the tower rotates, the lower the number the faster rotation 
+
 RAND_A = 1103515245
 RAND_C = 12345
 CODESEG
@@ -180,16 +187,11 @@ PROC towerterrain
 	
 	add ecx,ebx
 	inc ecx
-	call drawFilledRectangle,edx,ecx,eax,SCRHEIGHT,15
-	;call drawFilledRectangle,0,0,SCRWIDTH,ecx,16
-	; for some reason the top right corner flashes, not at all pleasant
-	;mov eax,[esi+4];takes largest x-valkue
-	;mov ebx, SCRWIDTH
-	;sub ebx,eax
-	;call drawFilledRectangle,eax,0,ebx,SCRHEIGHT,16
+	call drawFilledRectangle,edx,ecx,eax,SCRHEIGHT,15; draw the white path on which we play
 	dec ecx
 	sub ecx,ebx
-	call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
+	;call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
+	call DrawIMG, offset tower_safezone_read,edx,ecx,60,20
 	ret
 ENDP towerterrain
 
@@ -204,7 +206,8 @@ PROC setuptower
 	int  33h
 	
 	call initialize_tower_player,160,200
-	
+	call ReadFile, offset player_file, offset player_read, PLAYER_SIZE
+	call ReadFile, offset tower_safezone_file, offset tower_safezone_read, TOWER_SIZE
 	
 	
 	call initialize_bricks
@@ -501,10 +504,10 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov esi,[ebx]
 	mov [edi+BRICK.Y],esi
 	add ebx,4
-	mov [edi+BRICK.W],8
-	mov [edi+BRICK.H],6
+	mov [edi+BRICK.W],10
+	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
-	call randBetweenVal,30,45
+	call randBetweenVal,2,12
 	mov [edi +BRICK.COL],eax
 	add edi, edx
 	loop brick_init_loop
@@ -591,13 +594,12 @@ PROC drawbrickentities
 	mov edi,[esi+BRICK.X]
 	mov ebx,[esi+BRICK.Y]
 	
-	call randBetweenVal,2,10		; je gebruikt de return ni
 	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]
 	check_return:
 	add esi, edx
 	loop drawloop
 	mov esi, offset player
-	call drawplayer,[esi+PLAYER.X],[esi+PLAYER.Y],[esi+PLAYER.COL]; draws new position
+	call DrawIMG,offset player_read, [esi+PLAYER.X],[esi+PLAYER.Y],5,5; draws new position
 	mov edi, offset bullet
 	mov eax, [edi+BULLET.active]
 	cmp eax,1
@@ -617,7 +619,7 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	cmp eax, 1
 	jge reenter_respawn_loop
 	
-	call collision, [esi + BRICK.X],[esi + BRICK.Y],[esi + BRICK.W],[esi + BRICK.H],[edi +PLAYER.X],[edi +PLAYER.Y],1,1,8
+	call collision, [esi + BRICK.X],[esi + BRICK.Y],[esi + BRICK.W],[esi + BRICK.H],[edi +PLAYER.X],[edi +PLAYER.Y],1,1,7; moe hier nog even deftige waarden uitrekenen
 	cmp eax, 1
 	jge reenter_respawn_loop
 	mov ebx,[esi + BRICK.RES_CHANCE]
@@ -625,11 +627,11 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	cmp eax,ebx
 	jge no_respawn
 	mov [esi+BRICK.ALIVE],1
-	
+	mov [esi + BRICK.RES_CHANCE],0
 	jmp reenter_respawn_loop
 	no_respawn:
 	inc ebx
-	mov [esi + BRICK.RES_CHANCE],1 ; zou dit niet moet stijgen met ebx ?? deze moet ook reset worden als de block respawned
+	mov [esi + BRICK.RES_CHANCE],ebx ; zou dit niet moet stijgen met ebx ?? deze moet ook reset worden als de block respawned
 	reenter_respawn_loop:
 	add esi, edx
 	loop respawnloop
@@ -666,7 +668,7 @@ PROC lowertower
 	add esi, edx
 	loop lower_brick_loop
 	mov ebx, [rotatecount]
-	cmp ebx,15; adjust value here to adjust speed of rotation
+	cmp ebx,ROTATE_SPEED; adjust value here to adjust speed of rotation
 	jg rotate_tower
 	inc ebx
 	mov [rotatecount], ebx
@@ -728,6 +730,88 @@ PROC checkbrickbulletcollision
 	ret
 ENDP checkbrickbulletcollision
 
+PROC ReadFile
+	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
+	USES eax, ebx, ecx, edx, esi, edi
+	
+	; open file, get filehandle in AX
+	mov al, 0 ; read only
+	mov edx, [@@filepathptr]
+	mov ah, 3dh
+	int 21h
+	
+	mov  edx, offset openErrorMsg
+	jc @@print_error ; carry flag is set if error occurs
+
+	; read file data 
+	mov bx, ax ; move filehandle to bx
+	mov ecx, [@@noofbytes]
+	mov edx, [@@dataptr]
+	mov ah, 3fh
+	int 21h
+
+	mov  edx, offset readErrorMsg
+	jc @@print_error
+	
+	; close file
+	mov ah, 3Eh
+	int 21h
+	
+	mov  edx, offset closeErrorMsg
+	jc @@print_error
+	
+	ret
+
+@@print_error:
+	call setVideoMode, 03h
+	mov  ah, 09h
+	int  21h
+	
+	mov	ah,00h
+	int	16h
+	call terminateProcess	
+ENDP ReadFile
+
+PROC DrawIMG
+	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax,edx
+	
+	mov eax, [@@y]
+	mov ecx, SCRWIDTH
+	mul ecx 		;multiply EAX by ECX, store in EAX
+	add	eax, [@@x]
+	
+	;call print, eax
+
+	; Compute top left corner address
+	mov edi, VMEMADR
+	add edi, eax
+	
+	mov esi, [@@IMGPtr]
+	mov ecx, [@@h]
+	
+	DrawLineOfIMG:
+	mov edx, ecx
+	mov ecx, [@@w]
+	rep movsb
+	
+	add edi, SCRWIDTH
+	sub edi, [@@w]
+	mov ecx, edx
+	loop DrawLineOfIMG
+	ret	
+ENDP DrawIMG
+
+;PROC DrawBG ; not used here yet
+;	ARG	 @@dataptr: dword 
+;	USES esi,edi,ecx
+;	mov esi, [@@dataptr]
+;	mov edi, VMEMADR
+;	mov ecx, IMGSIZE
+;	rep movsb	
+;	ret	
+;ENDP DrawBG
+
 PROC towergame
 	ARG 	@@key:byte
 	USES 	eax,ecx,edx, ebx,esi,edi	
@@ -741,13 +825,13 @@ PROC towergame
 		call drawbrickentities
 		call endcollisioncheck_bricks
 		inc edx
-		call wait_VBLANK, 1
+		call wait_VBLANK, 2
 		call checkbrickbulletcollision
-		cmp edx,10; change the amount to change dificulty, will decide how often the whole shit descends
-		;jl continuegameloop	; edx start bij 0 dan word 1 en dan als het kleiner is dan 10 opnieuw 0?? (btw deze jump is de reden dat de tower plotseling trager naar beneden ging)
+		cmp edx,TOWER_SPEED; change the amount to change dificulty, will decide how often the whole shit descends
+		jl continuegameloop	; edx start bij 0 dan word 1 en dan als het kleiner is dan 10 opnieuw 0?? (btw deze jump is de reden dat de tower plotseling trager naar beneden ging)
 		mov edx,0																						 ;(edx wordt wss ergens verandert waardoor het enkel gebeurde wanneer de bullet geactiveerd werd)
 		call lowertower
-		;continuegameloop:
+		continuegameloop:
 		
 		
 		mov ah, 01h ; function 01h (check if key is pressed)
@@ -773,7 +857,7 @@ PROC towergame
 		cmp al,100; checks for D		; gaat moeten geswitched worden naar azerty je kan 'd' gebruiken voor de keycode ipv een getal
 		je RIGHT
 		re_towergameloop:
-		
+		push edx
 		mov edi, offset bullet
 		; getting an error here that the bullet slows down the tower relative to when there is no bullet present
 		; cant seem to find where=> will keep bullet alive, yet throw it to 1,1 with 0 velocity if it is 
@@ -866,6 +950,7 @@ PROC towergame
 		;call wait_VBLANK,4; tried adding this to compensate for the large gap in speed, somewhat works
 		skip_MouseNC:
 		call update_bullet
+		pop edx
 	jne	towergameloop ; if doesnt find anything restart
 	
 	UP:
@@ -952,8 +1037,8 @@ start:
 STRUC BRICK
 	X dd 0
 	Y dd 0
-	W dd 8
-	H dd 6
+	W dd 10
+	H dd 10
 	ALIVE dd 1; 1 will be for alive, 0 for dead
 	RES_CHANCE dd 1
 	COL dd 1
@@ -994,21 +1079,28 @@ DATASEG
 	bricks		BRICK	18		dup(< ,,,>)
 	brickamount dd 18
 	bricksize dd 24
-	brickmatrix dd 136,41,144,41,152,41,160,41,168,41,176,41,136,48,144,48,152,48,160,48,168,48,176,48,136,55,144,55,152,55,160,55,168,55,176,55
+	brickmatrix dd 130,41,140,41,150,41,160,41,170,41,180,41,130,52,140,52,150,52,160,52,170,52,180,52,130,63,140,63,150,63,160,63,170,63,180,63
 	
 	bullet		BULLET 1		dup(<,,,,,,,>)
 	
 	
-	spiderpos dd 0,0,10,10,30,30,40,40,50,50,60,60,70,70,80,80,90,90; contains the x followed by y positions of each spider
-	
-	safezone dd 136,184,20,40 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
-	
+	safezone dd 130,190,20,40 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
+	; width of safezone needs to be a 6 times width of bricks
 	victory db "you won!", 13, 10, '$'
 	
 	lossmessage db "you lost!", 13, 10, '$'
 	
 	randSeed		dd			2003630
+	tower_safezone_file db "safe.bin", 0
+	player_file db "player.bin", 0
+	openErrorMsg db "could not open file", 13, 10, '$'
+	readErrorMsg db "could not read data", 13, 10, '$'
+	closeErrorMsg db "error during file closing", 13, 10, '$'
 	
+	
+UDATASEG
+	tower_safezone_read db TOWER_SIZE dup (?)
+	player_read db PLAYER_SIZE dup (?)
 ; -------------------------------------------------------------------
 ; STACK
 ; -------------------------------------------------------------------
