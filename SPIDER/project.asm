@@ -21,7 +21,7 @@ SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
 
 IMGSIZE EQU 5*5
-SPIDER_TRUE_MOVE EQU 10; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
+SPIDER_TRUE_MOVE EQU 4; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
 
 RAND_A = 1103515245
 RAND_C = 12345
@@ -199,7 +199,7 @@ PROC updatespider_bullet; controls behaviour of spiders, dead and alive, and bul
 		
 		respawn_spider:
 		call randomize_spawn
-		call collision,[esi+SPIDER.RES_X],[esi+SPIDER.RES_Y],1,1,[ebx + PLAYER.X],[ebx + PLAYER.Y],1,1,150
+		call collision,[esi+SPIDER.RES_X],[esi+SPIDER.RES_Y],1,1,[ebx + PLAYER.X],[ebx + PLAYER.Y],1,1,15
 		cmp eax,1
 		jge reenterupdateloop
 		mov [esi+SPIDER.ALIVE],1; set spider on alive
@@ -527,6 +527,7 @@ PROC isInInterval
 	
 	ret
 ENDP isInInterval
+
 PROC collision
 	ARG		@@X1:dword, @@Y1:dword, @@W1:dword, @@H1:dword, @@X2:dword, @@Y2:dword, @@W2:dword, @@H2:dword, @@BufferSpace:dword
 	USES	ebx, ecx, edx, edi, esi
@@ -1081,8 +1082,7 @@ DATASEG
 	TotalOfBullets	dd			5
 	
 	
-	spiderpos dd 10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
-	entitypos dd 100,100,10,10,10,20,10,30,10,40,10,50,10,60,10,70,10,80,10,90
+	spiderpos dd 150,90,160,90,170,90,150,50,160,50,170,50,140,70,180,70,160,100; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
 	safezone dd 150,170,60,80 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
 	victory db "you won!", 13, 10, '$'
