@@ -271,6 +271,22 @@ PROC rand
     ret
 ENDP rand
 
+PROC fillBackground
+
+	ARG color:byte
+	USES ecx,edi,eax,esi
+	mov EDI, VMEMADR ; start of video memory
+	mov ecx, SCRWIDTH*SCRHEIGHT
+	mov AL, [color] 
+	xor esi,esi
+	backgroundloop:
+	
+	mov[EDI+esi],AL
+	inc esi
+	loop backgroundloop
+	rep stosb
+	ret
+ENDP fillBackground
 
 PROC isInInterval
 	ARG		@@a:dword, @@z:dword, @@b:dword

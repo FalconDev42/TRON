@@ -21,6 +21,10 @@ SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
 
 IMGSIZE EQU 5*5
+SPID_H EQU 5
+SPID_W EQU 5
+PLAY_H EQU 5
+PLAY_W EQU 5
 SPIDER_TRUE_MOVE EQU 4; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
 
 RAND_A = 1103515245
@@ -889,7 +893,7 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+SPIDER.Y]
 	sub ebx, 2
-	call DrawIMG, offset spiderread, edi, ebx, 5, 5
+	call DrawIMG, offset spiderread, edi, ebx, SPID_W, SPID_H
 	no_draw_spider:
 	add esi, edx
 	loop spiderdrawloop
@@ -902,7 +906,7 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+PLAYER.Y]
 	sub ebx, 2
-	call DrawIMG, offset playerread, edi, ebx, 5, 5
+	call DrawIMG, offset playerread, edi, ebx, PLAY_W, PLAY_H
 	
 	mov esi, offset bullet
 	mov eax, [esi+BULLET.active]
