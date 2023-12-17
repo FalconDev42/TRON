@@ -217,10 +217,8 @@ PROC setupspider ; set up the game, this proc is mainly used as to keep the main
 	call initialize_spider_spider; set the spiders on alive and assign them their spawns
 	
 	call spiderterrain
-	gameloop:
+	
 	call spidergame,001Bh;  exit button on esc
-	; in this need to implement time system, that or in the keystrojke section
-	jmp gameloop
 
 	ret
 ENDP setupspider
@@ -294,7 +292,7 @@ ENDP initialize_spider_spider
 
 
 PROC checkendcollision; will be used to check collision for victory det, collision of player with spiders and for collision between bullet and spiders
-	USES eax,ebx,ecx,edx,esi,edi
+	USES ebx,ecx,edx,esi,edi
 	mov esi,offset player
 	mov eax,offset safezone
 	
@@ -310,11 +308,8 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
 	cmp eax,1
 	jl no_victory_collision
-	; input code here for victory screen, for the moment just end game
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
-	call terminateProcess
-	
+	mov eax,1
+	jmp exit_collision
 	no_victory_collision:
 	mov edi,offset spiders
 	mov ecx,[spideramount]
@@ -330,12 +325,10 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	dead_spider:
 	add edi, edx
 	loop spider_check_loop
+	mov eax,2 
 	jmp exit_collision
 	defeat:
-	call terminateProcess
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
-	
+	mov eax,0
 	exit_collision:
 	ret
 ENDP checkendcollision
@@ -355,23 +348,21 @@ PROC initialize_spider_player; give the correct starting
 ENDP initialize_spider_player
 PROC spidergame
 	ARG 	@@key:byte
-	USES 	eax, ebx,esi,edi	
+	USES 	 ebx,esi,edi	
 	mov esi, offset player
 	mov edi, offset bullet
 	spidergameloop:
-		call spiderterrain; activate if want to clear behind character
-		mov ecx,[esi+PLAYER.X]
-		mov ebx,[esi+PLAYER.Y]
+		xor eax, eax 
+		call spiderterrain; activate if want to clear behind character 
 		call DrawEntities
 		call checkendcollision
+		cmp eax, 2
+		jl exit
 		
 		call wait_VBLANK, 2
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
-		; nieuwe movement shit van call: use shit from MYKEYB procedure, check in examples
-		;main functionality in KEYB, MYKEYB is just a "game"
-		; check line 114 from MYKEYB is the most important one
-		;also need to call installboardhandler
+		
 		jz SHORT re_spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 		mov ah, 00h ;get key from buffer (ascii code in al)
 		int 16h
@@ -517,7 +508,6 @@ PROC spidergame
 	mov [esi+PLAYER.X],ecx
 	jmp re_spidergameloop
 	exit:
-	call terminateProcess
 	ret
 ENDP spidergame
 

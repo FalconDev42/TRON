@@ -79,7 +79,7 @@ PROC setuptower
 ENDP setuptower
 
 PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manual but seems cho to me tbh
-	USES eax,ebx,ecx,edx,esi,edi
+	USES ebx,ecx,edx,esi,edi
 	mov esi,offset player
 	mov eax,offset safezone
 	
@@ -95,10 +95,9 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,0
 	cmp eax,1
 	jl no_victory_collision
-	; input code here for victory screen, for the moment just end game
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
-	call terminateProcess
+	mov eax, 1 ; 1 = win
+	jmp exit_collision
+	
 	
 	no_victory_collision:
 	mov edi,offset bricks
@@ -115,16 +114,15 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	nocollision:
 	add edi, edx
 	loop brick_check_loop
+	mov eax,2; 2 meaning no end condition hit
 	jmp exit_collision
 	defeat:
-	call terminateProcess
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
+	mov eax,0; 0 = loss
 	
 	exit_collision:
 	ret
 ENDP endcollisioncheck_bricks
-;waits until the update of the next frame, does this for framecount number of times
+
 
 
 
@@ -378,16 +376,18 @@ ENDP checkbrickbulletcollision
 
 PROC towergame
 	ARG 	@@key:byte
-	USES 	eax,ecx,edx, ebx,esi,edi	
+	USES 	ecx,edx, ebx,esi,edi	
 	mov esi, offset player
 	mov ebx, offset safezone
 	xor edx,edx
 	towergameloop:
-		
+		xor eax,eax
 		call towerterrain; activate if want to clear behind character
 		
 		call drawbrickentities
 		call endcollisioncheck_bricks
+		cmp eax, 2
+		jl exit
 		inc edx
 		call wait_VBLANK, 2
 		call checkbrickbulletcollision
@@ -564,7 +564,7 @@ PROC towergame
 	mov [esi+PLAYER.X],ecx
 	jmp re_towergameloop
 	exit:
-	call terminateProcess
+	
 	ret
 ENDP towergame
 start:
