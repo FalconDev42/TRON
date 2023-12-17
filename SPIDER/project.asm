@@ -21,6 +21,10 @@ SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
 
 IMGSIZE EQU 5*5
+SPID_H EQU 5
+SPID_W EQU 5
+PLAY_H EQU 5
+PLAY_W EQU 5
 SPIDER_TRUE_MOVE EQU 4; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
 
 RAND_A = 1103515245
@@ -355,11 +359,8 @@ PROC setupspider ; set up the game, this proc is mainly used as to keep the main
 	call initialize_spider_spider; set the spiders on alive and assign them their spawns
 	
 	call spiderterrain
-	gameloop:
+	
 	call spidergame,001Bh;  exit button on esc
-	; in this need to implement time system, that or in the keystrojke section
-	jmp gameloop
-
 	ret
 ENDP setupspider
 
@@ -647,7 +648,7 @@ PROC collision
 ENDP collision
 
 PROC checkendcollision; will be used to check collision for victory det, collision of player with spiders and for collision between bullet and spiders
-	USES eax,ebx,ecx,edx,esi,edi
+	USES ebx,ecx,edx,esi,edi
 	mov esi,offset player
 	mov eax,offset safezone
 	
@@ -663,11 +664,8 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
 	cmp eax,1
 	jl no_victory_collision
-	; input code here for victory screen, for the moment just end game
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
-	call terminateProcess
-	
+	mov eax,1
+	jmp exit_collision
 	no_victory_collision:
 	mov edi,offset spiders
 	mov ecx,[spideramount]
@@ -683,12 +681,10 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	dead_spider:
 	add edi, edx
 	loop spider_check_loop
+	mov eax,2 
 	jmp exit_collision
 	defeat:
-	call terminateProcess
-	;call setVideoMode,3h
-	;call waitForSpecificKeystroke, 001Bh
-	
+	mov eax,0
 	exit_collision:
 	ret
 ENDP checkendcollision
@@ -708,23 +704,21 @@ PROC initialize_spider_player; give the correct starting
 ENDP initialize_spider_player
 PROC spidergame
 	ARG 	@@key:byte
-	USES 	eax, ebx,esi,edi	
+	USES 	 ebx,esi,edi	
 	mov esi, offset player
 	mov edi, offset bullet
 	spidergameloop:
-		call spiderterrain; activate if want to clear behind character
-		mov ecx,[esi+PLAYER.X]
-		mov ebx,[esi+PLAYER.Y]
+		xor eax, eax 
+		call spiderterrain; activate if want to clear behind character 
 		call DrawEntities
 		call checkendcollision
+		cmp eax, 2
+		jl exit
 		
 		call wait_VBLANK, 2
 		mov ah, 01h ; function 01h (check if key is pressed)
 		int 16h ; call keyboard BIOS
-		; nieuwe movement shit van call: use shit from MYKEYB procedure, check in examples
-		;main functionality in KEYB, MYKEYB is just a "game"
-		; check line 114 from MYKEYB is the most important one
-		;also need to call installboardhandler
+		
 		jz SHORT re_spidergameloop;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 		mov ah, 00h ;get key from buffer (ascii code in al)
 		int 16h
@@ -870,7 +864,6 @@ PROC spidergame
 	mov [esi+PLAYER.X],ecx
 	jmp re_spidergameloop
 	exit:
-	call terminateProcess
 	ret
 ENDP spidergame
 
@@ -889,7 +882,7 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+SPIDER.Y]
 	sub ebx, 2
-	call DrawIMG, offset spiderread, edi, ebx, 5, 5
+	call DrawIMG, offset spiderread, edi, ebx, SPID_W, SPID_H
 	no_draw_spider:
 	add esi, edx
 	loop spiderdrawloop
@@ -902,7 +895,7 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+PLAYER.Y]
 	sub ebx, 2
-	call DrawIMG, offset playerread, edi, ebx, 5, 5
+	call DrawIMG, offset playerread, edi, ebx, PLAY_W, PLAY_H
 	
 	mov esi, offset bullet
 	mov eax, [esi+BULLET.active]
@@ -1015,13 +1008,26 @@ start:
 
 	mov ah,00h
 	int 16h
-	;call ReadFile, offset player_file, offset playerread, IMGSIZE 
-	;call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
 	call setupspider
-	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 	
+	call setVideoMode,3h
+	cmp eax,1
+	je win
+	jl loss
+	jmp no_message
+	
+	win:
+	mov ah, 09h
+	mov edx,offset victorymessage
+	int 21h
+	jmp no_message
+	loss:
+	mov ah, 09h
+	mov edx, offset lossmessage
+	int 21h
+	no_message:
 	mov ah,00h
 	int 16h
-	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
+	
 	call terminateProcess
 
 ; -------------------------------------------------------------------
@@ -1085,7 +1091,7 @@ DATASEG
 	spiderpos dd 150,90,160,90,170,90,150,50,160,50,170,50,140,70,180,70,160,100; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
 	safezone dd 150,170,60,80 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
-	victory db "you won!", 13, 10, '$'
+	victorymessage db "you won!", 13, 10, '$'
 	
 	lossmessage db "you lost!", 13, 10, '$'
 	
