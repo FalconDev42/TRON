@@ -1,8 +1,8 @@
 clear
-IMGWidth = 25;
-IMGHeight = 25;
+IMGWidth = 5;
+IMGHeight = 11;
 
-x = imread('tank.bmp');%Read 24 bit colour image 
+x = imread(['bikerply.png']);%Read 24 bit colour image 
 x = imresize(x,[IMGHeight IMGWidth]);%Scale image to required size
 %%
 % Read palette image stored in raster scan
@@ -40,7 +40,7 @@ end
 %Write assembly file
 x_13h = x_13h';
 x_13h = x_13h(:);
-fileID = fopen('IMAGEDP.bin','w');
+fileID = fopen('bikerply.bin','w');
 fwrite(fileID,uint8(x_13h));
 fclose(fileID);
 %%

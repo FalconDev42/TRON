@@ -16,10 +16,14 @@ MODEL FLAT, C
 ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 
 ; compile-time constants (with macros)
-IMGSIZE EQU 25*25;bytes of data in file
 VMEMADR EQU 0A0000h	; video memory address
 SCRWIDTH EQU 320	; screen witdth
 SCRHEIGHT EQU 200	; screen height
+
+BIKERW EQU 5
+BIKERH EQU 11
+
+IMGSIZE EQU BIKERW*BIKERH
 
 ; -------------------------------------------------------------------
 CODESEG
@@ -54,6 +58,35 @@ ENDP terminateProcess
 
 ; -------------------------------------------------------------------
 
+PROC rotateIMG
+	ARG	 @@OGIMGPtr:dword, @@IMGPtr:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax, edx, ebx
+	
+	mov edi, [@@IMGPtr]
+	mov esi, [@@OGIMGPtr]
+	mov ecx, [@@h]
+	
+	mov ebx, edi
+	
+	HorizontalLoop:
+	mov edx, ecx
+	mov ecx, [@@w]
+	
+	VericalLoop:
+	mov al, [esi]
+	mov [edi], al
+	
+	inc esi
+	add edi, [@@h]
+	loop VericalLoop
+	
+	add ebx, 1
+	mov edi, ebx
+	
+	mov ecx, edx
+	loop HorizontalLoop
+	ret	
+ENDP rotateIMG
 
 PROC ReadFile
 	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
@@ -153,12 +186,18 @@ PROC main
 	
 	push ds
 	pop	es
-	
-	call ReadFile, offset test_file, offset dataread, IMGSIZE 
 	call setVideoMode, 13h
+	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
+	
+	
+	call rotateIMG, offset ennemyIMG, offset ennemyIMGH, BIKERW, BIKERH
+	
+	
 	;call DrawBG, offset dataread
 	
-	call DrawIMG, offset dataread, 25, 25, 25, 25
+	call DrawIMG, offset ennemyIMG, 25, 25, BIKERW, BIKERH
+	
+	call DrawIMG, offset ennemyIMGH, 60, 25, BIKERH, BIKERW
 	
 	waitForKeystroke	
 	call terminateProcess
@@ -167,15 +206,17 @@ ENDP main
 
 ; -------------------------------------------------------------------
 DATASEG
-				
-	test_file db "IMAGEDP.bin", 0
-	openErrorMsg db "could not open file", 13, 10, '$'
-	readErrorMsg db "could not read data", 13, 10, '$'
-	closeErrorMsg db "error during file closing", 13, 10, '$'
+ennemyFile db "biker.bin", 0
 
-; -------------------------------------------------------------------
+openErrorMsg db "could not open file", 13, 10, '$'
+readErrorMsg db "could not read data", 13, 10, '$'
+closeErrorMsg db "error during file closing", 13, 10, '$'
+
+
+
 UDATASEG
-	dataread db IMGSIZE dup (?)
+ennemyIMG db IMGSIZE dup (?)
+ennemyIMGH db IMGSIZE dup (?)
 ; -------------------------------------------------------------------
 STACK 100h
 

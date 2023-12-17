@@ -20,6 +20,11 @@ BIKERSPEED 		EQU 1		; Speed of Biker
 BIKERW			EQU 5
 BIKERH			EQU 11
 
+BORDERCOLOR		EQU 12
+INVISIBLECOL	EQU 33
+
+IMGSIZE EQU BIKERW*BIKERH
+
 RAND_A = 1103515245
 RAND_C = 12345
 
@@ -27,6 +32,109 @@ RAND_C = 12345
 ; CODE
 ; -------------------------------------------------------------------
 CODESEG
+
+
+PROC ReadFile
+	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
+	USES eax, ebx, ecx, edx, esi, edi
+	
+	; open file, get filehandle in AX
+	mov al, 0 ; read only
+	mov edx, [@@filepathptr]
+	mov ah, 3dh
+	int 21h
+	
+	mov  edx, offset openErrorMsg
+	jc @@print_error ; carry flag is set if error occurs
+
+	; read file data 
+	mov bx, ax ; move filehandle to bx
+	mov ecx, [@@noofbytes]
+	mov edx, [@@dataptr]
+	mov ah, 3fh
+	int 21h
+
+	mov  edx, offset readErrorMsg
+	jc @@print_error
+	
+	; close file
+	mov ah, 3Eh
+	int 21h
+	
+	mov  edx, offset closeErrorMsg
+	jc @@print_error
+	
+	ret
+
+@@print_error:
+	call setVideoMode, 03h
+	mov  ah, 09h
+	int  21h
+	
+	mov	ah,00h
+	int	16h
+	call terminateProcess	
+ENDP ReadFile
+
+PROC DrawIMG
+	ARG	 @@IMGPtr:dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax,edx
+	
+	mov eax, [@@y]
+	mov ecx, SCRWIDTH
+	mul ecx 		;multiply EAX by ECX, store in EAX
+	add	eax, [@@x]
+	
+	;call print, eax
+
+	; Compute top left corner address
+	mov edi, VMEMADR
+	add edi, eax
+	
+	mov esi, [@@IMGPtr]
+	mov ecx, [@@h]
+	
+	DrawLineOfIMG:
+	mov edx, ecx
+	mov ecx, [@@w]
+	rep movsb
+	
+	add edi, SCRWIDTH
+	sub edi, [@@w]
+	mov ecx, edx
+	loop DrawLineOfIMG
+	ret	
+ENDP DrawIMG
+
+PROC rotateIMG
+	ARG	 @@OGIMGPtr:dword, @@IMGPtr:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax, edx, ebx
+	
+	mov edi, [@@IMGPtr]
+	mov esi, [@@OGIMGPtr]
+	mov ecx, [@@h]
+	
+	mov ebx, edi
+	
+	HorizontalLoop:
+	mov edx, ecx
+	mov ecx, [@@w]
+	
+	VericalLoop:
+	mov al, [esi]
+	mov [edi], al
+	
+	inc esi
+	add edi, [@@h]
+	loop VericalLoop
+	
+	add ebx, 1
+	mov edi, ebx
+	
+	mov ecx, edx
+	loop HorizontalLoop
+	ret	
+ENDP rotateIMG
 
 PROC rand
     USES    ebx, ecx, edx
@@ -231,9 +339,7 @@ PROC drawFilledRectangleDWORD
 	mov	eax,[@@col]
 	
 	@@startRectDraw:
-		mov [edi], eax
-		add edi, 4
-		loop @@startRectDraw
+	rep stosd
 	
 	sub edi, edx		; reset edi to left-top corner
 	add edi, esi
@@ -241,7 +347,6 @@ PROC drawFilledRectangleDWORD
 	shr ecx, 2
 	
 	dec ebx
-	
 	cmp ebx, 0
 	jge @@startRectDraw
 	
@@ -301,7 +406,7 @@ PROC initiateBikers
 	rep stosd			; reset PlayGround
 	
 	
-	mov eax, 8
+	mov eax, BORDERCOLOR
 	mov ecx, SCRWIDTH
 	mov edi, [@@PtrPlayGround]
 	
@@ -309,7 +414,7 @@ PROC initiateBikers
 	
 	;dec edi
 	
-	mov eax, 8h
+	mov eax, BORDERCOLOR
 	mov ecx, SCRHEIGHT - 2
 	
 	LeftAndRightEdgeLoop:
@@ -323,7 +428,7 @@ PROC initiateBikers
 	
 	loop LeftAndRightEdgeLoop
 	
-	mov eax, 8
+	mov eax, BORDERCOLOR
 	mov ecx, SCRWIDTH
 	
 	rep stosd
@@ -707,12 +812,6 @@ PROC BikerAI
 	
 	; if here: there is a line in the chosen orientation
 	
-	cmp edx, 31		;if every possibility has been tested this biker is done
-	je SetForNextBiker
-	
-	; chose new direction
-	
-	
 	mov eax, [esp]			; reset everything because of rotate
 	mov [edi + BIKER.X], eax
 	mov eax, [esp + 4]
@@ -725,6 +824,11 @@ PROC BikerAI
 	mov [edi + BIKER.W], eax
 	mov eax, [esp + 20]
 	mov [edi + BIKER.H], eax
+	
+	cmp edx, 31		;if every possibility has been tested this biker is done
+	je SetForNextBiker
+	
+	; choose new direction
 	
 	; edx contains the chosen decisions
 	; if edx == 3 => X not possible anymore (got refused in = 0 test || every possibility in X used)
@@ -774,7 +878,6 @@ PROC BikerAI
 	
 	ret
 ENDP BikerAI
-
 
 PROC checkColorsInRectangle
 	ARG 	@@PlayGroundPtr:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword
@@ -909,30 +1012,43 @@ PROC moveBiker
 		cmp [edi + BIKER.alive], 0
 		je SHORT skipBikerDead
 		
+		; mov eax, [edi + BIKER.velX]
+		; mov ebx, [edi + BIKER.velY]
+		
+		; cmp eax, 0
+		; je ColVelIsVert
+		
+		; inc ebx
+		; add eax, [edi + BIKER.X]
+		; add ebx, [edi + BIKER.Y]
+		; call checkColorsInRectangle, esi, eax, ebx, [edi + BIKER.W], BIKERW - 2		; only the inside pixels
+		
+		; jmp CheckIfDead
+		; ColVelIsVert:
+		
+		; inc eax
+		; add eax, [edi + BIKER.X]
+		; add ebx, [edi + BIKER.Y]
+		; call checkColorsInRectangle, esi, eax, ebx, BIKERW - 2, [edi + BIKER.H]		; only the inside pixels
+		
+		; CheckIfDead:
+		
 		mov eax, [edi + BIKER.velX]
 		mov ebx, [edi + BIKER.velY]
-		
-		cmp eax, 0
-		je VelIsVertMov
-		jl calcPosMov
-		add eax, [edi + BIKER.W]
-		jmp SHORT calcPosMov
-		
-		VelIsVertMov:
-		cmp ebx, 0
-		jl calcPosMov
-		add ebx, [edi + BIKER.H]
-		
-		calcPosMov:
-		
 		add eax, [edi + BIKER.X]
-		inc eax
 		add ebx, [edi + BIKER.Y]
+		call checkColorsInRectangle, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H]		; only the inside pixels
 		
-		call checkColorsInRectangle, esi, eax, ebx, BIKERW - 2, BIKERW - 2		; check only the front of each biker and only the inside pixels
 		;xor eax, eax
 		cmp eax, 0 ; if eax is not equal to 0 then there is a color in the future rectangle so biker must die
-		jne BikerIsDead
+		je skipBikerDead
+		
+		mov [edi + BIKER.alive], 2		; 2 means that the biker has to be erased
+		skipBikerDead:
+		
+		cmp [edi + BIKER.alive], 0
+		je BikerLongDead
+		
 		mov eax, [edi + BIKER.X]
 		add eax, [edi + BIKER.velX]
 		
@@ -942,14 +1058,11 @@ PROC moveBiker
 		mov [edi + BIKER.X], eax
 		mov [edi + BIKER.Y], ebx
 		
-		call drawFilledRectangleDWORD, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.col]
+		
+		call drawFilledRectangleDWORD, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL
 		call drawLine, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
 		
-		jmp SHORT skipBikerDead
-		BikerIsDead:
-		mov [edi + BIKER.alive], 2		; 2 means that the biker has to be erased
-		
-		skipBikerDead:
+		BikerLongDead:
 	
 	sub edi, edx
 	dec ecx
@@ -1073,6 +1186,8 @@ PROC EraseLine
 	add edi, 8 * SCRWIDTH
 	jmp ResetPixelOfLine
 	LineIsNotBottom2:
+	
+
 	EndLineReset:
 	
 	ret
@@ -1103,17 +1218,23 @@ PROC selectiveBackgroundFiller
 		; afterwards erase for the last time the biker and set alive status to 0 such that we dont draw over him anymore
 		
 		
-		call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
-		
 		call EraseLine, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
 		
-		mov [edi + BIKER.alive], 0
+		call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
+		
+		call drawFilledRectangle, 0, 0, SCRWIDTH, SCRHEIGHT, 0
+		
+		mov [edi + BIKER.velX], 0
+		mov [edi + BIKER.velY], 0
+		
 		xor eax, eax
+		mov [edi + BIKER.alive], eax
 	NoLineReset:
 	
-	cmp eax, 0
-	je DontResetRect
+	cmp eax, 1
+	jne DontResetRect
 	call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
+	
 	DontResetRect:
 	
 	
@@ -1126,7 +1247,7 @@ PROC selectiveBackgroundFiller
 ENDP selectiveBackgroundFiller
 
 PROC show
-	ARG		@@PtrPlayGround:dword, @@PtrPlayGround:dword
+	ARG		@@PtrPlayGround:dword, @@PtrBiker:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	mov esi, [@@PtrPlayGround]
@@ -1134,15 +1255,38 @@ PROC show
 	mov ecx, SCRWIDTH*SCRHEIGHT
 	mov ebx, [TotalOfBikers]
 	
-	xor eax, eax
+	
+	mov edx, [@@PtrBiker]
 	
 	BikersShowLoop:
 	mov eax, [esi]
 	
-	cmp eax, ebx
-	je PlayerColor
+	; remove residual lines if not yet removed
+	;jmp NoColorChange ; debugging
 	cmp al, 0
 	je NoColorChange
+	cmp al, BORDERCOLOR
+	je NoColorChange
+	cmp al, INVISIBLECOL
+	je EndPixelUpdate
+	
+	cmp eax, ebx
+	je PlayerColor
+	
+	; remove residual lines if not yet removed
+	sub eax, [TotalOfBikers]
+	neg eax
+	push edx
+	mul [BikerSize]
+	pop edx
+	 
+	cmp [edx + eax + BIKER.alive], 1
+	je ShowPix
+	xor eax, eax
+	mov [esi], eax
+	mov [edi], al
+	ShowPix:
+	
 	mov al, 14
 	mov [edi], al		; Ennemy color
 	jmp EndPixelUpdate
@@ -1162,6 +1306,42 @@ PROC show
 	inc edi
 	add esi, 4
 	loop BikersShowLoop
+	
+	mov edx, [@@PtrBiker]
+	mov eax, [BikerSize]
+	mov ecx, [TotalOfBikers]
+
+	; show player
+	cmp [edx + BIKER.velX], 0
+	je PlyVelIsVertShow
+		call DrawIMG, offset playerIMGH, [edx + BIKER.X], [edx + BIKER.Y], BIKERH, BIKERW
+		jmp showEnnemyBikers
+	PlyVelIsVertShow:
+		call DrawIMG, offset playerIMG, [edx + BIKER.X], [edx + BIKER.Y], BIKERW, BIKERH
+		
+	showEnnemyBikers:
+	
+	add edx, eax
+	dec ecx
+	
+	mov esi, offset ennemyIMG
+	mov edi, offset ennemyIMGH
+	
+	imgLoop:
+		cmp [edx + BIKER.alive], 1
+		jne showNextBiker
+		
+		cmp [edx + BIKER.velX], 0
+		je VelIsVertShow
+			call DrawIMG, edi, [edx + BIKER.X], [edx + BIKER.Y], BIKERH, BIKERW
+			jmp showNextBiker
+		VelIsVertShow:
+			call DrawIMG, esi, [edx + BIKER.X], [edx + BIKER.Y], BIKERW, BIKERH
+		
+		showNextBiker:
+		
+		add edx, eax
+	loop imgLoop
 	
 	ret
 ENDP show
@@ -1241,6 +1421,11 @@ start:
 	
 	call	setVideoMode, 13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
 	
+	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
+	call ReadFile, offset playerFile, offset playerIMG, IMGSIZE
+	
+	call rotateIMG, offset ennemyIMG, offset ennemyIMGH, BIKERW, BIKERH
+	call rotateIMG, offset playerIMG, offset playerIMGH, BIKERW, BIKERH
 	
 	mov edi, offset Bikers
 	mov edx, offset BikerPosInitArr
@@ -1252,7 +1437,7 @@ start:
 	mov ecx, [TotalOfBikers]
 	shl ebx, cl
 	
-	mov ecx, 5000
+	mov ecx, 20000
 	drawLoop:
 	
 	call selectiveBackgroundFiller, edi, esi
@@ -1264,9 +1449,9 @@ start:
 	
 	call moveBiker, edi, esi
 	
-	call show, edi, esi
+	call show, esi, edi
 	
-	call wait_VBLANK, 1
+	call wait_VBLANK, 2
 	
 	call endConditionBiker, edi
 	
@@ -1306,8 +1491,8 @@ STRUC BIKER
 	Y		dd 100
 	velX 	dd 0
 	velY 	dd 0
-	W		dd BIKERW
-	H		dd BIKERH
+	W		dd 0
+	H		dd 0
 	alive 	dd 1
 	col 	dd 1
 ENDS BIKER
@@ -1330,6 +1515,21 @@ PlayGround		dd 			SCRWIDTH*SCRHEIGHT dup (0)
 WinMsg			db 	"You WON!", 13, 10, '$'
 LoseMsg			db 	"You LOST", 13, 10, '$'
 
+
+ennemyFile db "biker.bin", 0
+playerFile db "bikerply.bin", 0
+
+openErrorMsg db "could not open file", 13, 10, '$'
+readErrorMsg db "could not read data", 13, 10, '$'
+closeErrorMsg db "error during file closing", 13, 10, '$'
+
+
+
+UDATASEG
+ennemyIMG db IMGSIZE dup (?)
+ennemyIMGH db IMGSIZE dup (?)
+playerIMG db IMGSIZE dup (?)
+playerIMGH db IMGSIZE dup (?)
 ; -------------------------------------------------------------------
 ; STACK
 ; -------------------------------------------------------------------

@@ -20,6 +20,8 @@ SCRHEIGHT EQU 200	; screen height
 TANKSPEED EQU 12	; screen height (16 is 1 << 4)
 SCALARBITSHIFT EQU 4	;scales every coordinate/speed
 
+IMGSIZE EQU 25*25	;bytes of data in file
+
 RAND_A = 1103515245
 RAND_C = 12345
 
@@ -27,6 +29,82 @@ RAND_C = 12345
 ; CODE
 ; -------------------------------------------------------------------
 CODESEG
+
+
+PROC ReadFile
+	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
+	USES eax, ebx, ecx, edx, esi, edi
+	
+	; open file, get filehandle in AX
+	mov al, 0 ; read only
+	mov edx, [@@filepathptr]
+	mov ah, 3dh
+	int 21h
+	
+	mov  edx, offset openErrorMsg
+	jc @@print_error ; carry flag is set if error occurs
+
+	; read file data 
+	mov bx, ax ; move filehandle to bx
+	mov ecx, [@@noofbytes]
+	mov edx, [@@dataptr]
+	mov ah, 3fh
+	int 21h
+
+	mov  edx, offset readErrorMsg
+	jc @@print_error
+	
+	; close file
+	mov ah, 3Eh
+	int 21h
+	
+	mov  edx, offset closeErrorMsg
+	jc @@print_error
+	
+	ret
+
+@@print_error:
+	call setVideoMode, 03h
+	mov  ah, 09h
+	int  21h
+	
+	mov	ah,00h
+	int	16h
+	call terminateProcess	
+ENDP ReadFile
+
+
+PROC DrawIMG
+	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	USES esi, edi, ecx, eax, edx
+	
+	mov eax, [@@y]
+	mov ecx, SCRWIDTH
+	mul ecx 		;multiply EAX by ECX, store in EAX
+	add	eax, [@@x]
+	
+	;call print, eax
+
+	; Compute top left corner address
+	mov edi, VMEMADR
+	add edi, eax
+	
+	mov esi, [@@IMGPtr]
+	mov ecx, [@@h]
+	
+	DrawLineOfIMG:
+	mov edx, ecx
+	mov ecx, [@@w]
+	rep movsb
+	
+	add edi, SCRWIDTH
+	sub edi, [@@w]
+	mov ecx, edx
+	loop DrawLineOfIMG
+	ret	
+ENDP DrawIMG
+
+
 
 PROC rand
     USES    ebx, ecx, edx
@@ -264,7 +342,7 @@ PROC initiateTanks
 	mov [edi + TANK.velY], 0
 	
 	mov [edi + TANK.W], 400	; 25 shl 4
-	mov [edi + TANK.H], 400;320	; 20 shl 4
+	mov [edi + TANK.H], 400	; 25 shl 4
 	
 	mov [edi + TANK.alive], 1
 	
@@ -1382,11 +1460,6 @@ PROC show
 	mov ecx, [TotalOfTanks]
 	
 	TanksShowLoop:
-	cmp [edi + TANK.alive], 0
-	jne StillAlive
-		mov [edi + TANK.col], 25
-	StillAlive:
-	
 	mov eax, [edi + TANK.X]
 	mov ebx, [edi + TANK.Y]
 	mov edx, [edi + TANK.W]
@@ -1396,8 +1469,20 @@ PROC show
 	shr edx, SCALARBITSHIFT
 	shr esi, SCALARBITSHIFT
 	
-	call drawFilledRectangle, eax, ebx, edx, esi, [edi + TANK.col]
+	cmp [edi + TANK.alive], 0
+	jne StillAlive
+		call drawFilledRectangle, eax, ebx, edx, esi, 25
+		jmp ShowNextTank
+	StillAlive:
 	
+	cmp ecx, [TotalOfTanks]
+	je showPlayerTank
+		call DrawIMG, offset ennemyIMG, eax, ebx, edx, esi
+		jmp ShowNextTank
+	showPlayerTank:
+		call DrawIMG, offset playerIMG, eax, ebx, edx, esi
+		
+	ShowNextTank:
 	add edi, [TankSize]
 	loop TanksShowLoop
 	
@@ -1519,6 +1604,9 @@ start:
 	pop es
 	
 	call	setVideoMode,13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
+	
+	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
+	call ReadFile, offset playerFile, offset playerIMG, IMGSIZE
 	
 	mov edx, offset Blocks
 	
@@ -1643,6 +1731,19 @@ TotalOfBlocks	dd			4
 
 WinMsg			db 	"You WON!", 13, 10, '$'
 LoseMsg			db 	"You LOST", 13, 10, '$'
+
+
+ennemyFile db "tank.bin", 0
+playerFile db "tankply.bin", 0
+openErrorMsg db "could not open file", 13, 10, '$'
+readErrorMsg db "could not read data", 13, 10, '$'
+closeErrorMsg db "error during file closing", 13, 10, '$'
+
+
+
+UDATASEG
+ennemyIMG db IMGSIZE dup (?)
+playerIMG db IMGSIZE dup (?)
 
 ; -------------------------------------------------------------------
 ; STACK
