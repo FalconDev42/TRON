@@ -26,22 +26,34 @@ PLAYERIMGSIZE EQU 5*5
 PLAYERW EQU 5
 PLAYERH EQU 5
 
-MIDZONEX EQU 5
-MIDZONEY EQU 5
-MIDZONEW EQU 5
-MIDZONEH EQU 5
+MIDZONEX EQU 133
+MIDZONEY EQU 89
+MIDZONEW EQU 56
+MIDZONEH EQU 56
+
+EXZONEX EQU 83
+EXZONEY EQU 40
+EXZONEW EQU 156
+EXZONEH EQU 156
 
 CODESEG
 
 
+MACRO ShowMouse
+	push eax
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	pop eax
+ENDM ShowMouse
+
 PROC playerInput
 	ARG 	@@PtrPlayer:dword
-	USES 	eax, ebx, ecx, edx, esi, edi	
+	USES 	ebx, ecx, edx, esi, edi	
 	mov edi, [@@PtrPlayer]
 
 	mov ah, 01h 		; function 01h (check if key is pressed)
 	int 16h 			; call keyboard BIOS
-	jz notRIGHT	; if key not pressed than there is a 0 flag
+	jz SHORT noGoodKeyPress	; if key not pressed than there is a 0 flag
 	
 	mov ah, 00h 		;get key from buffer (ascii code in al)
 	int 16h
@@ -56,6 +68,8 @@ PROC playerInput
 	mov eax, [edi + PLAYER.Y]
 	dec eax ; moves position
 	mov [edi + PLAYER.Y], eax
+	
+	mov eax, 1
 	jmp notRIGHT
 	
 	notUP:
@@ -66,6 +80,8 @@ PROC playerInput
 	mov eax, [edi + PLAYER.Y]
 	inc eax ; moves position
 	mov [edi + PLAYER.Y], eax
+	
+	mov eax, 1
 	jmp notRIGHT
 	
 	notDOWN:
@@ -76,17 +92,24 @@ PROC playerInput
 	mov eax, [edi + PLAYER.X]
 	dec eax ; moves position
 	mov [edi + PLAYER.X], eax
+	
+	mov eax, 1
 	jmp notRIGHT
 	
 	notLEFT:
 	
 	cmp al, 'd'
-	jne notRIGHT
+	jne noGoodKeyPress
 	
 	mov eax, [edi + PLAYER.X]
 	inc eax ; moves position
 	mov [edi + PLAYER.X], eax
-
+	mov eax, 1
+	jmp notRIGHT
+	
+	noGoodKeyPress:
+	xor eax, eax
+	
 	notRIGHT:
 
 	ret
@@ -116,26 +139,81 @@ PROC setuptron
 	; insert the call readfile here for the background
 	
 	mov esi, [@@PtrPlayer]
-	mov [esi + PLAYER.X], 158
-	mov [esi + PLAYER.Y], 98
+	mov [esi + PLAYER.X], 159
+	mov [esi + PLAYER.Y], 115
+	
+	call drawBackground
+	
+	ShowMouse
 	
 	ret
 ENDP setuptron
 
 PROC selectGame
-	ARG 	@@PtrPlayer:dword
-	USES 	ebx, edx, esi
+	ARG 	@@x:dword, @@y:dword, @@w:dword, @@h:dword
+	USES 	ebx, ecx, edx, edi, esi
 	
-	mov esi, [@@PtrPlayer]
-	call collision, MIDZONEX, MIDZONEY, MIDZONEW, MIDZONEH, [esi + PLAYER.X], [esi + PLAYER.Y], PLAYERW, PLAYERH, 0
+	mov ecx, [@@x]
+	mov edx, [@@y]
+	mov edi, [@@w]
+	mov esi, [@@h]
+	
+	;call drawRectangle, MIDZONEX, MIDZONEY, MIDZONEW, MIDZONEH, 3
+	
+	call collision, MIDZONEX, MIDZONEY, MIDZONEW, MIDZONEH, ecx, edx, edi, esi, 0
+	
+	
+	mov ebx, eax
+	
+	call collision, EXZONEX, EXZONEY, EXZONEW, EXZONEH, ecx, edx, edi, esi, 0
 	
 	xor eax, 0Fh ; invert the return
+	
+	or eax, ebx
+	
 	cmp eax, 0
 	jne NoGameSelected
 	; background: game selection is divided into four triangles
 	; we just have to determine in wich triangle the player is positioned
 	
 	; use equation of two lines to divide the screen into four parts
+	
+	mov eax, ecx
+	add eax, edx
+	
+	mov ebx, ecx
+	sub ebx, edx
+	
+	cmp eax, 274	; x + y = 159 + 115 = 274
+	jg TowerOrBiker
+		cmp ebx, 44		; x - y = 159 - 115 = 44
+		jg Tower
+		;spider
+		
+		;call SpiderSetup
+		
+		jmp endOfSelctor
+		
+		Tower:
+						; tower
+		;call TowerSetup
+		jmp endOfSelctor
+		
+	TowerOrBiker:
+		cmp ebx, 44		; x - y = 159 - 115 = 44
+		jg	Biker
+		; tank
+		
+		;call tankGame
+		
+		jmp endOfSelctor
+		
+		Biker:
+		; biker
+		
+		; call bikerGame
+		
+		jmp endOfSelctor
 	
 	
 	mov eax, 1		; reset everyting
@@ -156,22 +234,54 @@ start:
 	push ds
 	pop es
 	
+	NoMouse:
+	mov  ax, 0000h  ; reset mouse
+	int  33h        ; -> AX BX
+	cmp  ax, 0FFFFh
+	jne  NoMouse
+	
 	mov esi, offset player
 	
 	call ReadFile, offset player_file, offset playerIMG, PLAYERIMGSIZE 
 	call ReadFile, offset backgroundIMG_file, offset backgroundIMG, SCRWIDTH*SCRHEIGHT 
 	
-	ReSetupTron:
+	; ReSetupTron:
 	call setuptron, esi
 	mov ecx, 1
 	
 	mainLoopTRON:
 	
+	
+	
 	call playerInput, esi
 	
+	cmp eax, 1
+	jne DontRedrawBackgrnd
+		call drawBackground
+		ShowMouse
+	DontRedrawBackgrnd:
 	
-	call drawBackground
 	call drawTronEntities, esi
+	
+	call selectGame, [esi + PLAYER.X], [esi + PLAYER.Y], 5, 5
+	
+	
+	push ecx
+	push ebx
+	push edx
+	mov  ax, 0003h  ; get mouse position and buttonstatus
+	int  33h        ; -> BX CX DX
+	
+	test ebx, 1      ; check left mouse click
+	jz SHORT NoMouseClick		; zero if no click
+	shr ecx, 1
+	
+	call selectGame, ecx, edx, 1, 1
+	
+	NoMouseClick:
+	pop edx
+	pop ebx
+	pop ecx
 	
 	call wait_VBLANK, 1
 	
@@ -188,8 +298,8 @@ start:
 ; if add spider as struct: only need 2 pieces of info on spider, namely position, in x and y, and if alive doesnt matter=> insta respawn at start position spider
 
 STRUC PLAYER
-	X dd 158
-	Y dd 98
+	X dd 159
+	Y dd 115
 ENDS PLAYER
 
 

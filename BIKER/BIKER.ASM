@@ -33,6 +33,12 @@ RAND_C = 12345
 ; -------------------------------------------------------------------
 CODESEG
 
+MACRO HideMouse
+	push eax
+	mov  ax, 0002h  ; hide mouse
+	int  33h
+	pop eax
+ENDM ShowMouse
 
 PROC ReadFile
 	ARG	 @@filepathptr: dword,@@dataptr: dword,@@noofbytes: dword 
@@ -1439,6 +1445,8 @@ PROC BikerGame
 	
 	mov ecx, 20000
 	drawLoop:
+	
+	HideMouse
 	
 	call selectiveBackgroundFiller, edi, esi
 	

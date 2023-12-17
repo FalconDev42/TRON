@@ -1595,8 +1595,9 @@ PROC wait_VBLANK
 	ret 
 ENDP wait_VBLANK
 
-
-start:
+PROC TankGame
+	USES 	eax, ebx, ecx, edx, edi, esi
+	
     sti            ; set The Interrupt Flag => enable interrupts
     cld            ; clear The Direction Flag
 	
@@ -1674,6 +1675,8 @@ start:
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call	terminateProcess
 
+ENDP TankGame
+
 ; -------------------------------------------------------------------
 ; STRUCTS
 ; -------------------------------------------------------------------
@@ -1750,4 +1753,4 @@ playerIMG db IMGSIZE dup (?)
 ; -------------------------------------------------------------------
 STACK 100h
 
-END start
+END TankGame

@@ -74,40 +74,41 @@ PROC drawDot
 ENDP drawDot
 
 PROC drawRectangle
-	ARG x0:dword,y0:dword,w:dword,h:dword,col:byte
-	;will be using two independant loops, one drawing vertical lines the other drawing horizontal
-	USES eax,ecx,edi,edx
-	mov al,[col]
-	xor EDI,EDI
-	mov EDI, VMEMADR
-	;mov ecx,w
-	mov eax,[y0]
+	ARG 	@@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
+	USES 	eax, ecx, edx, edi, ebx
+
+	; Compute the index of the rectangle's top left corner
+	mov eax, [@@y0]
 	mov edx, SCRWIDTH
-	mul edx
-	mov ebx, [x0]
+	mul edx ;multiply EAX by EDX, store in EAX
+	add	eax, [@@x0]
+
+	; Compute top left corner address
+	mov edi, VMEMADR
+	add edi, eax
 	
-	add edi,eax
-	add edi,ebx
+	; Plot the top horizontal edge.
+	mov edx, [@@w]	; store width in edx for later reuse
+	mov	ecx, edx
+	mov	eax,[@@col]
 	
-	mov eax,[h]
-	mov edx, SCRWIDTH
-	mul edx
+	rep stosb
 	
-	mov edx,[w]
-	mov ecx,edx
-	horloop:
-	mov [edi],al
-	mov [edi +eax],al
-	inc edi
-	loop horloop
-	sub edi, edx
-	mov ecx, [h]
-	vertloop:
-	mov [edi], AL
-	mov [edi+edx-1],AL
-	add edi,SCRWIDTH
-	loop vertloop
+	sub edi, edx		; reset edi to left-top corner
 	
+	; plot both vertical edges
+	mov ecx, [@@h]
+	@@vertLoop:
+		mov	[edi], al		; left edge
+		mov	[edi + edx - 1], al	; right edge
+		add	edi, SCRWIDTH
+		loop @@vertLoop
+	; edi should point at the bottom-left corner now
+	sub edi, SCRWIDTH
+	
+	; Plot the bottom horizontal edge.
+	mov	ecx, edx
+	rep stosb
 	ret
 ENDP drawRectangle
 
@@ -193,7 +194,7 @@ PROC ReadFile
 ENDP ReadFile
 
 PROC DrawIMG
-	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	ARG	 @@IMGPtr:dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
 	USES esi, edi, ecx, eax,edx
 	
 	mov eax, [@@y]
