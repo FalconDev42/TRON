@@ -1412,7 +1412,7 @@ PROC wait_VBLANK
 ENDP wait_VBLANK
 
 
-start:
+PROC BikerGame
     sti            ; set The Interrupt Flag => enable interrupts
     cld            ; clear The Direction Flag
 	
@@ -1482,6 +1482,7 @@ start:
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call	terminateProcess
 
+ENDP BikerGame
 ; -------------------------------------------------------------------
 ; STRUCTS
 ; -------------------------------------------------------------------
@@ -1535,4 +1536,4 @@ playerIMGH db IMGSIZE dup (?)
 ; -------------------------------------------------------------------
 STACK 100h
 
-END start
+END BikerGame
