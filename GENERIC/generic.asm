@@ -193,7 +193,7 @@ PROC ReadFile
 ENDP ReadFile
 
 PROC DrawIMG
-	ARG	 @@IMGPtr: dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
+	ARG	 @@IMGPtr:dword, @@x:dword, @@y:dword, @@w:dword, @@h:dword
 	USES esi, edi, ecx, eax,edx
 	
 	mov eax, [@@y]
