@@ -13,6 +13,8 @@ P386
 MODEL FLAT, C
 ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 
+INCLUDE "generic.inc"
+
 ; -------------------------------------------------------------------
 ; CODE
 ; -------------------------------------------------------------------
@@ -46,7 +48,7 @@ PROC towerterrain
 	mov ecx,[esi+8]
 	sub ebx,ecx;finds the height
 	
-	call fillBackground,16
+	call fillBackground, 16
 	
 	add ecx,ebx
 	inc ecx
@@ -122,11 +124,6 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	exit_collision:
 	ret
 ENDP endcollisioncheck_bricks
-
-
-
-
-
 
 PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
 	USES eax,ebx,ecx,edx,edi,esi
@@ -588,10 +585,6 @@ start:
 	mov ah,00h
 	int 16h
 	call terminateProcess
-	;call terminateProcess
-	; Terminate process with return code in response to a keystroke.
-    mov	ax,4C00h
-	int 	21h
 
 ; -------------------------------------------------------------------
 ; DATA
