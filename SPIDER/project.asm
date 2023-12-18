@@ -25,7 +25,7 @@ SPID_H EQU 5
 SPID_W EQU 5
 PLAY_H EQU 5
 PLAY_W EQU 5
-SPIDER_TRUE_MOVE EQU 4; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
+SPIDER_TRUE_MOVE EQU 2; gives the ratio of true moves a spider makes out of ten, higher number = more true moves
 
 RAND_A = 1103515245
 RAND_C = 12345
