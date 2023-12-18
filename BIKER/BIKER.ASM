@@ -316,8 +316,8 @@ PROC drawFilledRectangle
 	ret
 ENDP drawFilledRectangle
 
-PROC drawFilledRectangleDWORD
-	ARG 	@@PtrStartScreen:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
+PROC ReplaceRectangleDWORD
+	ARG 	@@PtrStartScreen:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@OGCol: dword, @@newCol: dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
 	
@@ -326,7 +326,6 @@ PROC drawFilledRectangleDWORD
 	; Compute the index of the rectangle's top left corner
 	mov eax, [@@y0]
 	mov edx, SCRWIDTH * 4
-	mov esi, edx
 	mul edx ;multiply EAX by EDX, store in EAX
 	add	eax, ecx
 
@@ -342,13 +341,22 @@ PROC drawFilledRectangleDWORD
 	mov ebx, [@@h]
 	;shl ebx, 2
 	
-	mov	eax,[@@col]
+	mov	esi, [@@OGCol]
+	mov eax, [@@newCol]
 	
 	@@startRectDraw:
-	rep stosd
+	cmp [edi], esi
+	jne DontChangeCol
+	mov [edi], eax
+	
+	DontChangeCol:
+	add edi, 4
+	loop @@startRectDraw
+	
+	;rep stosd
 	
 	sub edi, edx		; reset edi to left-top corner
-	add edi, esi
+	add edi, SCRWIDTH * 4
 	mov ecx, edx
 	shr ecx, 2
 	
@@ -357,7 +365,7 @@ PROC drawFilledRectangleDWORD
 	jge @@startRectDraw
 	
 	ret
-ENDP drawFilledRectangleDWORD
+ENDP ReplaceRectangleDWORD
 
 PROC initiateBikers
 	ARG		@@PtrBikers:dword, @@PtrInitArray:dword, @@PtrVelInitArray:dword, @@PtrPlayGround:dword
@@ -1065,7 +1073,7 @@ PROC moveBiker
 		mov [edi + BIKER.Y], ebx
 		
 		
-		call drawFilledRectangleDWORD, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL
+		call ReplaceRectangleDWORD, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], 0, INVISIBLECOL
 		call drawLine, esi, eax, ebx, [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
 		
 		BikerLongDead:
@@ -1226,7 +1234,7 @@ PROC selectiveBackgroundFiller
 		
 		call EraseLine, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
 		
-		call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
+		call ReplaceRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL, 0
 		
 		call drawFilledRectangle, 0, 0, SCRWIDTH, SCRHEIGHT, 0
 		
@@ -1239,7 +1247,7 @@ PROC selectiveBackgroundFiller
 	
 	cmp eax, 1
 	jne DontResetRect
-	call drawFilledRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
+	call ReplaceRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL, 0
 	
 	DontResetRect:
 	
