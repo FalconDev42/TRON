@@ -114,12 +114,11 @@ ENDP drawRectangle
 
 PROC drawFilledRectangle
 	ARG 	@@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@col: dword
-	USES 	eax, ecx, edx, edi, ebx, esi
+	USES 	eax, ecx, edx, edi, ebx
 	
 	; Compute the index of the rectangle's top left corner
 	mov eax, [@@y0]
 	mov edx, SCRWIDTH
-	mov esi, edx
 	mul edx ;multiply EAX by EDX, store in EAX
 	add	eax, [@@x0]
 
@@ -135,12 +134,11 @@ PROC drawFilledRectangle
 	mov ebx, [@@h]
 	
 	@@startRectDraw:
-		mov [edi], al
-		inc edi
-		loop @@startRectDraw
+	
+	rep stosb
 	
 	sub edi, edx		; reset edi to left-top corner
-	add edi, esi
+	add edi, SCRWIDTH
 	mov ecx, edx
 	
 	dec ebx
@@ -233,7 +231,6 @@ PROC DrawBG
 	ret	
 ENDP DrawBG
 
-
 PROC randBetweenVal
 	ARG @@min:dword, @@max:dword
 	USES ebx, edx
@@ -272,6 +269,22 @@ PROC rand
     ret
 ENDP rand
 
+PROC fillBackground
+	ARG color:dword
+	USES ecx, edi, eax, esi
+	
+	mov edi, VMEMADR ; start of video memory
+	mov ecx, SCRWIDTH*SCRHEIGHT
+	mov eax, [color] 
+	xor esi, esi
+	backgroundloop:
+	
+	mov[edi + esi], al
+	inc esi
+	loop backgroundloop
+	rep stosb
+	ret
+ENDP fillBackground
 
 PROC isInInterval
 	ARG		@@a:dword, @@z:dword, @@b:dword

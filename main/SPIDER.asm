@@ -12,7 +12,9 @@ IDEAL
 P386
 MODEL FLAT, C
 ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
-;INCLUDE "spider.inc"
+
+INCLUDE "generic.inc"
+INCLUDE "spider.inc"
 ; -------------------------------------------------------------------
 ; CODE
 ; -------------------------------------------------------------------
@@ -199,7 +201,12 @@ PROC spiderterrain; draws the terrain around the map
 ENDP spiderterrain
 
 PROC setupspider ; set up the game, this proc is mainly used as to keep the main clean
-	call setVideoMode,13h
+	USES ebx, ecx, edx, edi, esi
+	;call setVideoMode,13h
+	
+	;push ds
+	;pop es
+	
 	NoMouse:
 	mov  ax, 0000h  ; reset mouse
 	int  33h        ; -> AX BX
@@ -550,32 +557,6 @@ PROC DrawEntities
 	ret
 ENDP DrawEntities
 
-start:
-     sti            ; set The Interrupt Flag => enable interrupts
-     cld            ; clear The Direction Flag
-
-	push ds
-	pop es
-	
-	mov ah, 09h
-	mov edx, offset msg
-	
-	int 21h
-	xor ah,ah
-	xor edx,edx
-	
-
-	mov ah,00h
-	int 16h
-	;call ReadFile, offset player_file, offset playerread, IMGSIZE 
-	;call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
-	call setupspider
-	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 	
-	mov ah,00h
-	int 16h
-	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
-	call terminateProcess
-
 ; -------------------------------------------------------------------
 ; DATA
 ; -------------------------------------------------------------------
@@ -644,20 +625,11 @@ DATASEG
 	randSeed		dd			2003630
 	spider_file db "spider.bin", 0
 	player_file db "player.bin", 0
-	openErrorMsg db "could not open file", 13, 10, '$'
-	readErrorMsg db "could not read data", 13, 10, '$'
-	closeErrorMsg db "error during file closing", 13, 10, '$'
 	
 	
 UDATASEG
 	spiderread db IMGSIZE dup (?)
 	playerread db IMGSIZE dup (?)
-; -------------------------------------------------------------------
-; STACK
-; -------------------------------------------------------------------
-STACK 100h
 
-END start
 
-; 12 is colorcode for red
-; 10 voor groen
+END

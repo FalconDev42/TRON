@@ -15,6 +15,9 @@ ASSUME cs:_TEXT,ds:FLAT,es:FLAT,fs:FLAT,gs:FLAT
 
 INCLUDE "generic.inc"
 
+INCLUDE "spider.inc"
+INCLUDE "biker.inc"
+
 ; -------------------------------------------------------------------
 ; CODE
 ; -------------------------------------------------------------------
@@ -130,7 +133,6 @@ PROC drawBackground
 	ret
 ENDP drawBackground
 
-
 PROC setuptron
 	ARG 	@@PtrPlayer:dword
 	USES eax, ebx, edx,ecx
@@ -158,10 +160,7 @@ PROC selectGame
 	mov edi, [@@w]
 	mov esi, [@@h]
 	
-	;call drawRectangle, MIDZONEX, MIDZONEY, MIDZONEW, MIDZONEH, 3
-	
 	call collision, MIDZONEX, MIDZONEY, MIDZONEW, MIDZONEH, ecx, edx, edi, esi, 0
-	
 	
 	mov ebx, eax
 	
@@ -185,12 +184,12 @@ PROC selectGame
 	sub ebx, edx
 	
 	cmp eax, 274	; x + y = 159 + 115 = 274
-	jg TowerOrBiker
+	jg TankOrBiker
 		cmp ebx, 44		; x - y = 159 - 115 = 44
 		jg Tower
 		;spider
 		
-		;call SpiderSetup
+		call setupspider
 		
 		jmp endOfSelctor
 		
@@ -199,7 +198,7 @@ PROC selectGame
 		;call TowerSetup
 		jmp endOfSelctor
 		
-	TowerOrBiker:
+	TankOrBiker:
 		cmp ebx, 44		; x - y = 159 - 115 = 44
 		jg	Biker
 		; tank
@@ -211,17 +210,15 @@ PROC selectGame
 		Biker:
 		; biker
 		
-		; call bikerGame
+		call BikerGame, 2, 5
 		
 		jmp endOfSelctor
 	
 	
-	mov eax, 1		; reset everyting
-	
 	jmp endOfSelctor
 	NoGameSelected:
 	
-	xor eax, eax	; no need to reset everyting
+	mov eax, 3	; no need to reset everyting
 	
 	endOfSelctor:
 	ret
@@ -245,7 +242,7 @@ start:
 	call ReadFile, offset player_file, offset playerIMG, PLAYERIMGSIZE 
 	call ReadFile, offset backgroundIMG_file, offset backgroundIMG, SCRWIDTH*SCRHEIGHT 
 	
-	; ReSetupTron:
+	ReSetupTron:
 	call setuptron, esi
 	mov ecx, 1
 	
@@ -265,12 +262,16 @@ start:
 	
 	call selectGame, [esi + PLAYER.X], [esi + PLAYER.Y], 5, 5
 	
+	cmp eax, 3
+	jl ReSetupTron
 	
 	push ecx
 	push ebx
 	push edx
 	mov  ax, 0003h  ; get mouse position and buttonstatus
 	int  33h        ; -> BX CX DX
+	
+	mov eax, 3
 	
 	test ebx, 1      ; check left mouse click
 	jz SHORT NoMouseClick		; zero if no click
@@ -282,6 +283,9 @@ start:
 	pop edx
 	pop ebx
 	pop ecx
+	
+	cmp eax, 3
+	jl ReSetupTron
 	
 	call wait_VBLANK, 1
 	
