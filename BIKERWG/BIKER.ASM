@@ -40,7 +40,7 @@ MACRO HideMouse
 	mov  ax, 0002h  ; hide mouse
 	int  33h
 	pop eax
-ENDM ShowMouse
+ENDM HideMouse
 
 PROC rotateIMG
 	ARG	 @@OGIMGPtr:dword, @@IMGPtr:dword, @@w:dword, @@h:dword
@@ -334,17 +334,22 @@ PROC rotateBikerLeft
 ENDP rotateBikerLeft
 
 ;modifies the speed of the ennemy Bikers
-;Initiates a bullet if the mouse is clicked
 PROC inputFromPlayer
 	ARG		@@PtrPlayerBiker:dword
-	USES 	eax, ebx, ecx, edx, edi, esi
+	USES 	ebx, ecx, edx, edi, esi
 	
 	mov ah, 01h ; function 01h (check if key is pressed)
 	int 16h ; call keyboard BIOS
-	jz @@notpressed ;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
+	jz SHORT @@notpressed ;if key not pressed than there is a 0 flag ; SHORT means short jump (+127 or -128 bytes) solves warning message
 	
 	mov ah, 00h ;get key from buffer (ascii code in al)
 	int 16h
+	
+	cmp	al, 001Bh	; ='esc' checks to see if we ditch program
+	jne  noEXIT
+	mov eax, 2
+	jmp EXITGAME
+	noEXIT:
 	
 	mov edi, [@@PtrPlayerBiker]
 	
@@ -388,9 +393,12 @@ PROC inputFromPlayer
 	
 	@@notpressed:
 	
+	xor eax, eax
+	
+	EXITGAME:
+	
 	ret
 ENDP inputFromPlayer
-
 
 PROC BikerAI
 	ARG		@@PtrBikers:dword, @@PtrPlayGround:dword
@@ -976,7 +984,7 @@ PROC selectiveBackgroundFiller
 	mov eax, [edi + BIKER.alive]
 	
 	cmp eax, 2
-	jne NoLineReset
+	jne SHORT NoLineReset
 		
 		;if line reset:
 		; find pixel where line was drawn: check if color equal to that of dead biker
@@ -1136,8 +1144,10 @@ PROC endConditionBiker
 	ret
 ENDP endConditionBiker
 
-
+; returns in eax, 0 for loss, 1 for win, 2 for quit
 PROC BikerGame
+	;ARG 	@@WaitNFrames:dword, @@NBikers:dword
+	;USES 	ebx, ecx, edx, edi, esi
     sti            ; set The Interrupt Flag => enable interrupts
     cld            ; clear The Direction Flag
 	
@@ -1171,6 +1181,9 @@ PROC BikerGame
 	
 	call inputFromPlayer, edi
 	
+	cmp eax, 2
+	je EndBikerGame
+	
 	call BikerAI, edi, esi
 	
 	
@@ -1189,26 +1202,22 @@ PROC BikerGame
 	loop drawLoop
 	
 	EndBikerGamePlayerWin:
-	call setVideoMode, 03h	;back to text
-	
-	mov ah, 09h
-	mov edx, offset WinMsg
-	int 21h
-	
+		mov eax, 1
 	jmp SHORT EndBikerGame
 	
 	EndBikerGamePlayerLose:
-	call setVideoMode, 03h	;back to text
-	
-	mov ah, 09h
-	mov edx, offset LoseMsg
-	int 21h
-	
+		xor eax, eax
 	EndBikerGame:
+
+	xor edx, edx
+	add al, '0'
+	mov ah, 2h
+	mov dl, al
+	int 21h
 
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call	terminateProcess
-
+	ret
 ENDP BikerGame
 ; -------------------------------------------------------------------
 ; STRUCTS

@@ -217,7 +217,7 @@ ENDP initiateTanks
 ;Initiates a bullet if the mouse is clicked
 PROC inputFromPlayer
 	ARG		@@PtrPlayerTank:dword, @@PtrBullets:dword
-	USES 	eax, ebx, ecx, edx, edi, esi
+	USES 	ebx, ecx, edx, edi, esi
 	
 	mov ah, 01h ; function 01h (check if key is pressed)
 	int 16h ; call keyboard BIOS
@@ -225,6 +225,12 @@ PROC inputFromPlayer
 	
 	mov ah, 00h ;get key from buffer (ascii code in al)
 	int 16h
+	
+	cmp	al, 001Bh	; ='esc' checks to see if we ditch program
+	jne  noEXIT
+	mov eax, 2
+	jmp EXITGAME
+	noEXIT:
 	
 	mov edi, [@@PtrPlayerTank]
 	
@@ -289,6 +295,8 @@ PROC inputFromPlayer
 	call ShootBullet, esi, eax, ebx, ecx, edx
 	
 	MouseNC:
+	xor eax, eax
+	EXITGAME:
 	
 	ret
 ENDP inputFromPlayer
@@ -1152,8 +1160,9 @@ PROC endConditionTank
 	ret
 ENDP endConditionTank
 
+; returns in eax, 1 for win, 0 for loss, 2 for quit
 PROC TankGame
-	USES 	eax, ebx, ecx, edx, edi, esi
+	USES 	ebx, ecx, edx, edi, esi
 	
     sti            ; set The Interrupt Flag => enable interrupts
     cld            ; clear The Direction Flag
@@ -1193,6 +1202,8 @@ PROC TankGame
 	
 	call inputFromPlayer, edi, ebx
 	
+	cmp eax, 2
+	je EndTankGame
 				;@@PtrTanks:dword, @@PtrBullets:dword
 	call TankAI, edi, ebx
 	
@@ -1211,23 +1222,32 @@ PROC TankGame
 	loop drawLoop
 	
 	EndTankGamePlayerWin:
-	call setVideoMode, 03h	;back to text
+	; call setVideoMode, 03h	;back to text
 	
-	mov ah, 09h
-	mov edx, offset WinMsg
-	int 21h
+	; mov ah, 09h
+	; mov edx, offset WinMsg
+	; int 21h
+	
+	mov eax, 1
 	
 	jmp SHORT EndTankGame
 	
 	EndTankGamePlayerLose:
-	call setVideoMode, 03h	;back to text
+	; call setVideoMode, 03h	;back to text
 	
-	mov ah, 09h
-	mov edx, offset LoseMsg
-	int 21h
+	; mov ah, 09h
+	; mov edx, offset LoseMsg
+	; int 21h
+	
+	xor eax, eax
 	
 	EndTankGame:
-	;call showPalette
+	
+	xor edx, edx
+	add al, '0'
+	mov ah, 2h
+	mov dl, al
+	int 21h
 
 	call	waitForSpecificKeystroke, 001Bh ;press esc to kill program
 	call	terminateProcess
