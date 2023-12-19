@@ -3,7 +3,8 @@
 ; 32-bit x86 assembly language
 ; TASM
 ;
-; author:	Thijs Verschuuren
+; authors:	Thijs Verschuuren, Ethan Fack
+; group: 	G20
 ; date:		28/11/2023
 ; -------------------------------------------------------------------
 
@@ -196,13 +197,16 @@ PROC selectGame
 		cmp ebx, 44		; x - y = 159 - 115 = 44
 		jg Tower
 		;spider
+		call WaitForEmptyBuffer
 		
 		call setupspider
 		
 		jmp endOfSelctor
 		
 		Tower:
-						; tower
+		; tower
+		call WaitForEmptyBuffer
+		
 		call setuptower
 		jmp endOfSelctor
 		
@@ -210,6 +214,7 @@ PROC selectGame
 		cmp ebx, 44		; x - y = 159 - 115 = 44
 		jg	Biker
 		; tank
+		call WaitForEmptyBuffer
 		
 		call TankGame
 		
@@ -217,6 +222,7 @@ PROC selectGame
 		
 		Biker:
 		; biker
+		call WaitForEmptyBuffer
 		
 		call BikerGame, 2, 5
 		
@@ -231,6 +237,25 @@ PROC selectGame
 	endOfSelctor:
 	ret
 ENDP selectGame
+
+PROC WaitForEmptyBuffer
+	USES eax, ebx, ecx, edx
+	
+	stillSomethingHappening:
+	
+	mov ah, 01h 		; function 01h (check if key is pressed)
+	int 16h 			; call keyboard BIOS
+	jnz SHORT stillSomethingHappening	; if key not pressed than there is a 0 flag
+	
+	mov  ax, 0003h  ; get mouse position and buttonstatus
+	int  33h        ; -> BX CX DX
+	test ebx, 1      ; check left mouse click
+	jnz SHORT stillSomethingHappening		; zero if no click
+	
+	; no actions anymore
+	
+	ret
+ENDP WaitForEmptyBuffer
 
 start:
      sti            ; set The Interrupt Flag => enable interrupts
@@ -256,17 +281,19 @@ start:
 	call setuptron, esi
 	mov ecx, 1
 	
-	xor edx, edx
+	mov edx, 100	; number of frames without game selction
+	
+	xor edi, edi
 	cmp ebx, 1
 	jg EscapedGame
 	jl LostGame
-	mov ecx, 500
-	mov edx, offset winIMG
+	mov ecx, 500		; number of frames to show win/loss msg
+	mov edi, offset winIMG
 	
 	jmp redrawBackground
 	LostGame:
 	mov ecx, 500
-	mov edx, offset lossIMG
+	mov edi, offset lossIMG
 	
 	jmp redrawBackground
 	EscapedGame:
@@ -283,14 +310,17 @@ start:
 		call drawBackground
 		cmp ecx, 1
 		jle NoImg
-		cmp edx, 0
+		cmp edi, 0
 		je NoImg
-		call DrawIMG, edx, 100, 5, 120, 30
+		call DrawIMG, edi, 100, 5, 120, 30
 		NoImg:
 		ShowMouse
 	DontRedrawBackgrnd:
 	
 	call drawTronEntities, esi
+	
+	cmp edx, 1
+	jg DontSelectGameYet
 	
 	call selectGame, [esi + SELECTOR.X], [esi + SELECTOR.Y], 5, 5
 	mov ebx, eax
@@ -322,6 +352,13 @@ start:
 	mov ebx, eax
 	cmp ebx, 3
 	jl ReSetupTron
+	
+	DontSelectGameYet:
+	
+	cmp edx, 1
+	jle DontDecrementEDX
+	dec edx
+	DontDecrementEDX:
 	
 	call wait_VBLANK, 1
 	
