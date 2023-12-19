@@ -1155,8 +1155,8 @@ PROC BikerGame
 	
 	;push ds
 	;pop es
-	
-	;call	setVideoMode, 13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
+	; recall function to avoid visual glitch
+	;call setVideoMode, 13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
 	
 	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
 	call ReadFile, offset playerFile, offset playerIMG, IMGSIZE
