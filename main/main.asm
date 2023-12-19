@@ -5,7 +5,6 @@
 ;
 ; author:	Thijs Verschuuren
 ; date:		28/11/2023
-; program:	SPIDER
 ; -------------------------------------------------------------------
 
 IDEAL
@@ -17,6 +16,7 @@ INCLUDE "generic.inc"
 
 INCLUDE "spider.inc"
 INCLUDE "biker.inc"
+INCLUDE "tower.inc"
 
 ; -------------------------------------------------------------------
 ; CODE
@@ -195,7 +195,7 @@ PROC selectGame
 		
 		Tower:
 						; tower
-		;call TowerSetup
+		call setuptower
 		jmp endOfSelctor
 		
 	TankOrBiker:
@@ -246,10 +246,18 @@ start:
 	call setuptron, esi
 	mov ecx, 1
 	
+	call drawFilledRectangle, 100, 0, 120, 30, 2
+	
+	;cmp eax, 1
+	;jg EscapedGame
+	;jl LostGame
+	;call DrawIMG
+	;jmp EscapedGame
+	;LostGame:
+	;call DrawIMG
+	;EscapedGame:
+	
 	mainLoopTRON:
-	
-	
-	
 	call playerInput, esi
 	
 	cmp eax, 1
