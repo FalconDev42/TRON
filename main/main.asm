@@ -242,21 +242,21 @@ start:
 	
 	call ReadFile, offset player_file, offset playerIMG, PLAYERIMGSIZE 
 	call ReadFile, offset backgroundIMG_file, offset backgroundIMG, SCRWIDTH*SCRHEIGHT 
+	call ReadFile, offset winIMG_file, offset winIMG, 30*120
+	call ReadFile, offset lossIMG_file, offset lossIMG, 30*120
 	
 	ReSetupTron:
 	call setuptron, esi
 	mov ecx, 1
 	
-	call drawFilledRectangle, 100, 0, 120, 30, 2
-	
-	;cmp eax, 1
-	;jg EscapedGame
-	;jl LostGame
-	;call DrawIMG
-	;jmp EscapedGame
-	;LostGame:
-	;call DrawIMG
-	;EscapedGame:
+	cmp eax, 1
+	jg EscapedGame
+	jl LostGame
+	call DrawIMG, offset winIMG, 100, 5, 120, 30
+	jmp EscapedGame
+	LostGame:
+	call DrawIMG, offset lossIMG, 100, 5, 120, 30
+	EscapedGame:
 	
 	mainLoopTRON:
 	call playerInput, esi
@@ -328,12 +328,15 @@ DATASEG
 	
 	player_file db "player.bin", 0
 	backgroundIMG_file db "backgrnd.bin", 0
-	
+	winIMG_file db "winscrn.bin", 0
+	lossIMG_file db "lossscrn.bin", 0
 	
 UDATASEG
 	playerIMG db PLAYERIMGSIZE dup (?)
 	
 	backgroundIMG db SCRWIDTH*SCRHEIGHT dup (?)
+	winIMG db 30*120 dup (?)
+	lossIMG db 30*120 dup (?)
 ; -------------------------------------------------------------------
 ; STACK
 ; -------------------------------------------------------------------
