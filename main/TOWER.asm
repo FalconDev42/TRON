@@ -142,7 +142,7 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov [edi+BRICK.W],10
 	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
-	call randBetweenVal,1,12
+	call randBetweenVal,30,63
 	mov [edi +BRICK.COL],eax
 	add edi, edx
 	loop brick_init_loop
