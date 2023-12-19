@@ -30,6 +30,19 @@ SPIDER_TRUE_MOVE EQU 2; gives the ratio of true moves a spider makes out of ten,
 
 RAND_A = 1103515245
 RAND_C = 12345
+MACRO ShowMouse
+	push eax
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	pop eax
+ENDM ShowMouse
+
+MACRO HideMouse
+	push eax
+	mov  ax, 0002h  ; show mouse
+	int  33h
+	pop eax
+ENDM HideMouse
 CODESEG
 
 PROC updatespider_bullet; controls behaviour of spiders, dead and alive, and bullet while active 
@@ -358,6 +371,7 @@ PROC spidergame
 		xor eax, eax 
 		call spiderterrain; activate if want to clear behind character 
 		call DrawEntities
+		ShowMouse
 		call checkendcollision
 		cmp eax, 2
 		jl exit

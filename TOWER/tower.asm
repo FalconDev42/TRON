@@ -34,6 +34,20 @@ RAND_A = 1103515245
 RAND_C = 12345
 CODESEG
 
+MACRO ShowMouse
+	push eax
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	pop eax
+ENDM ShowMouse
+
+MACRO HideMouse
+	push eax
+	mov  ax, 0002h  ; show mouse
+	int  33h
+	pop eax
+ENDM HideMouse
+
 PROC setVideoMode
 	ARG arg1:word
 	USES eax
@@ -799,7 +813,7 @@ PROC towergame
 		xor eax,eax
 		call towerterrain; activate if want to clear behind character
 		call drawbrickentities
-		
+		ShowMouse
 		call endcollisioncheck_bricks
 		cmp eax, 2
 		jl exit

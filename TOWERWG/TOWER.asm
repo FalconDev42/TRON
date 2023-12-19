@@ -34,6 +34,19 @@ ROTATE_SPEED EQU 3;decides how fast the tower rotates, the lower the number the 
 
 RAND_A = 1103515245
 RAND_C = 12345
+MACRO ShowMouse
+	push eax
+	mov  ax, 0001h  ; show mouse
+	int  33h
+	pop eax
+ENDM ShowMouse
+
+MACRO HideMouse
+	push eax
+	mov  ax, 0002h  ; show mouse
+	int  33h
+	pop eax
+ENDM HideMouse
 CODESEG
 
 
@@ -382,6 +395,7 @@ PROC towergame
 		call towerterrain; activate if want to clear behind character
 		
 		call drawbrickentities
+		ShowMouse
 		call endcollisioncheck_bricks
 		cmp eax, 2
 		jl exit
