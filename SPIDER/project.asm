@@ -353,7 +353,7 @@ PROC setupspider ; set up the game, this proc is mainly used as to keep the main
 	call ReadFile, offset player_file, offset playerread, IMGSIZE 
 	call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
 	
-	call initialize_spider_player,160,160; sets start point of player
+	call initialize_spider_player; sets start point of player
 	
 	call randomize_spawn; assign semi random spawn points to the spiders
 	call initialize_spider_spider; set the spiders on alive and assign them their spawns
@@ -691,15 +691,16 @@ ENDP checkendcollision
 
 
 PROC initialize_spider_player; give the correct starting
-	arg @@Start_X:dword, @@Start_Y:dword
-	USES eax,ebx,esi
-	mov eax, [@@Start_X]
-	mov ebx, [@@Start_Y]
+	USES eax,ebx,esi,edx
+	mov eax, offset playerpos
 	mov esi, offset player
-	mov [esi+player.X],eax
-	mov [esi+player.Y],ebx
-	mov [esi +player.ALIVE],1
-	mov [esi+player.COL],1
+	mov edx,[eax]
+	mov [esi+PLAYER.X],edx
+	add eax,4
+	mov edx, [eax]
+	mov [esi+PLAYER.Y],edx
+	mov [esi +PLAYER.ALIVE],1
+	mov [esi+PLAYER.COL],1
 	ret
 ENDP initialize_spider_player
 PROC spidergame
@@ -864,6 +865,7 @@ PROC spidergame
 	mov [esi+PLAYER.X],ecx
 	jmp re_spidergameloop
 	exit:
+	mov [edi + BULLET.active],0
 	ret
 ENDP spidergame
 
@@ -1046,8 +1048,8 @@ STRUC SPIDER
 ENDS SPIDER
 
 STRUC PLAYER
-	X dd 160
-	Y dd 160
+	X dd 0;160
+	Y dd 0;160
 	ALIVE dd 1
 	COL dd 15
 ENDS PLAYER
@@ -1073,7 +1075,7 @@ DATASEG
 	playersize dd 16;
 	
 	
-	playerpos dd 100,100; stores position of player
+	playerpos dd 160,160; stores position of player
 	
 	
 	

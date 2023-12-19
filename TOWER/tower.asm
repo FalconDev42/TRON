@@ -978,7 +978,7 @@ PROC towergame
 	mov [esi+PLAYER.X],ecx
 	jmp re_towergameloop
 	exit:
-	
+	mov [edi + BULLET.active],0
 	ret
 ENDP towergame
 start:
