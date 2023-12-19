@@ -202,7 +202,9 @@ ENDP spiderterrain
 
 PROC setupspider ; set up the game, this proc is mainly used as to keep the main clean
 	USES ebx, ecx, edx, edi, esi
-	;call setVideoMode,13h
+	
+	; recall function to avoid visual glitch
+	call setVideoMode,13h
 	
 	;push ds
 	;pop es

@@ -17,6 +17,7 @@ INCLUDE "generic.inc"
 INCLUDE "spider.inc"
 INCLUDE "biker.inc"
 INCLUDE "tower.inc"
+INCLUDE "tank.inc"
 
 ; -------------------------------------------------------------------
 ; CODE
@@ -203,7 +204,7 @@ PROC selectGame
 		jg	Biker
 		; tank
 		
-		;call tankGame
+		call TankGame
 		
 		jmp endOfSelctor
 		
