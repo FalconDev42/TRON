@@ -68,9 +68,9 @@ PROC playerInput
 	
 	cmp al, 'z'
 	jne notUP
-	mov eax, [edi + PLAYER.Y]
+	mov eax, [edi + SELECTOR.Y]
 	dec eax ; moves position
-	mov [edi + PLAYER.Y], eax
+	mov [edi + SELECTOR.Y], eax
 	
 	mov eax, 1
 	jmp notRIGHT
@@ -80,9 +80,9 @@ PROC playerInput
 	cmp al, 's'
 	jne notDOWN
 	
-	mov eax, [edi + PLAYER.Y]
+	mov eax, [edi + SELECTOR.Y]
 	inc eax ; moves position
-	mov [edi + PLAYER.Y], eax
+	mov [edi + SELECTOR.Y], eax
 	
 	mov eax, 1
 	jmp notRIGHT
@@ -92,9 +92,9 @@ PROC playerInput
 	cmp al, 'q'
 	jne notLEFT
 	
-	mov eax, [edi + PLAYER.X]
+	mov eax, [edi + SELECTOR.X]
 	dec eax ; moves position
-	mov [edi + PLAYER.X], eax
+	mov [edi + SELECTOR.X], eax
 	
 	mov eax, 1
 	jmp notRIGHT
@@ -104,9 +104,9 @@ PROC playerInput
 	cmp al, 'd'
 	jne noGoodKeyPress
 	
-	mov eax, [edi + PLAYER.X]
+	mov eax, [edi + SELECTOR.X]
 	inc eax ; moves position
-	mov [edi + PLAYER.X], eax
+	mov [edi + SELECTOR.X], eax
 	mov eax, 1
 	jmp notRIGHT
 	
@@ -123,7 +123,7 @@ PROC drawTronEntities
 	USES eax, esi, ecx, edx, ebx, edi
 	
 	mov esi, [@@PtrPlayer]
-	call DrawIMG, offset playerIMG, [esi + PLAYER.X], [esi + PLAYER.Y], 5, 5
+	call DrawIMG, offset playerIMG, [esi + SELECTOR.X], [esi + SELECTOR.Y], 5, 5
 	ret
 ENDP drawTronEntities
 
@@ -141,8 +141,8 @@ PROC setuptron
 	; insert the call readfile here for the background
 	
 	mov esi, [@@PtrPlayer]
-	mov [esi + PLAYER.X], 159
-	mov [esi + PLAYER.Y], 115
+	mov [esi + SELECTOR.X], 159
+	mov [esi + SELECTOR.Y], 115
 	
 	call drawBackground
 	
@@ -237,7 +237,7 @@ start:
 	cmp  ax, 0FFFFh
 	jne  NoMouse
 	
-	mov esi, offset player
+	mov esi, offset selector
 	
 	call ReadFile, offset player_file, offset playerIMG, PLAYERIMGSIZE 
 	call ReadFile, offset backgroundIMG_file, offset backgroundIMG, SCRWIDTH*SCRHEIGHT 
@@ -260,7 +260,7 @@ start:
 	
 	call drawTronEntities, esi
 	
-	call selectGame, [esi + PLAYER.X], [esi + PLAYER.Y], 5, 5
+	call selectGame, [esi + SELECTOR.X], [esi + SELECTOR.Y], 5, 5
 	
 	cmp eax, 3
 	jl ReSetupTron
@@ -301,17 +301,17 @@ start:
 
 ; if add spider as struct: only need 2 pieces of info on spider, namely position, in x and y, and if alive doesnt matter=> insta respawn at start position spider
 
-STRUC PLAYER
+STRUC SELECTOR
 	X dd 159
 	Y dd 115
-ENDS PLAYER
+ENDS SELECTOR
 
 
 DATASEG
 
 	msg	db "Hello User! Welcome to the TRON game, use ZQSD to move your player around and left mouse to shoot, press any button to continue.", 13, 10, '$'
 	
-	player		PLAYER		1		dup(<,>)
+	selector		SELECTOR		1		dup(<,>)
 
 	victory db "you won!", 13, 10, '$'
 	
