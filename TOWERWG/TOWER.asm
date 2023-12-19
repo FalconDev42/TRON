@@ -564,6 +564,16 @@ PROC towergame
 	mov eax,2
 	exit:
 	mov [edi + BULLET.active],0
+	mov edi, offset safezone
+	mov ebx, offset safezone_start
+	mov esi, [ebx]
+	mov [edi],esi
+	mov esi, [ebx+4]
+	mov [edi+4],esi 
+	mov esi, [ebx+8]
+	mov [edi+8],esi
+	mov esi,[ebx+12]
+	mov [edi+12], esi
 	ret
 ENDP towergame
 start:
@@ -642,7 +652,7 @@ DATASEG
 	
 	bullet		BULLET 1		dup(<,,,,,,,>)
 	
-	
+	safezone_start dd 130,190,20,40
 	safezone dd 130,190,20,40 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	; width of safezone needs to be a 6 times width of bricks
 	victory db "you won!", 13, 10, '$'

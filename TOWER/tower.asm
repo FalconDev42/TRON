@@ -472,7 +472,7 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov edi, offset bricks
 	mov ebx, offset brickmatrix
 	mov ecx, [brickamount]
-	mov edx, [bricksize]; doint it statically rn, to save edx and headache
+	mov edx, [bricksize]
 	brick_init_loop:
 	mov esi,[ebx]
 	mov [edi+BRICK.X],esi
@@ -483,7 +483,8 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov [edi+BRICK.W],10
 	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
-	call randBetweenVal,2,12
+	call randBetweenVal,1,15
+	;shr eax,1
 	mov [edi +BRICK.COL],eax
 	add edi, edx
 	loop brick_init_loop
@@ -569,7 +570,7 @@ PROC drawbrickentities
 	jl check_return
 	mov edi,[esi+BRICK.X]
 	mov ebx,[esi+BRICK.Y]
-	
+	call randBetweenVal,1,15
 	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]
 	check_return:
 	add esi, edx
@@ -797,8 +798,8 @@ PROC towergame
 	towergameloop:
 		xor eax,eax
 		call towerterrain; activate if want to clear behind character
-		
 		call drawbrickentities
+		
 		call endcollisioncheck_bricks
 		cmp eax, 2
 		jl exit
@@ -809,6 +810,7 @@ PROC towergame
 		jl continuegameloop	; edx start bij 0 dan word 1 en dan als het kleiner is dan 10 opnieuw 0?? (btw deze jump is de reden dat de tower plotseling trager naar beneden ging)
 		mov edx,0																						 ;(edx wordt wss ergens verandert waardoor het enkel gebeurde wanneer de bullet geactiveerd werd)
 		call lowertower
+		
 		continuegameloop:
 		
 		
@@ -981,6 +983,16 @@ PROC towergame
 	mov eax,2
 	exit:
 	mov [edi + BULLET.active],0
+	mov edi, offset safezone
+	mov ebx, offset safezone_start
+	mov esi, [ebx]
+	mov [edi],esi
+	mov esi, [ebx+4]
+	mov [edi+4],esi 
+	mov esi, [ebx+8]
+	mov [edi+8],esi
+	mov esi,[ebx+12]
+	mov [edi+12], esi
 	ret
 ENDP towergame
 start:
@@ -1037,7 +1049,7 @@ STRUC BRICK
 	H dd 10
 	ALIVE dd 1; 1 will be for alive, 0 for dead
 	RES_CHANCE dd 1
-	COL dd 1
+	COL dd 0
 ENDS
 
 STRUC PLAYER
@@ -1081,6 +1093,7 @@ DATASEG
 	
 	
 	safezone dd 130,190,20,40 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
+	safezone_start dd 130,190,20,40
 	; width of safezone needs to be a 6 times width of bricks
 	victorymessage db "you won!", 13, 10, '$'
 	
