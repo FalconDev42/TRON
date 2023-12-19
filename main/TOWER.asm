@@ -142,7 +142,7 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov [edi+BRICK.W],10
 	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
-	call randBetweenVal,2,12
+	call randBetweenVal,1,12
 	mov [edi +BRICK.COL],eax
 	add edi, edx
 	loop brick_init_loop
@@ -648,7 +648,7 @@ DATASEG
 	
 	bricks		BRICK	18		dup(< ,,,>)
 	brickamount dd 18
-	bricksize dd 24
+	bricksize dd 28
 	brickmatrix dd 130,41,140,41,150,41,160,41,170,41,180,41,130,52,140,52,150,52,160,52,170,52,180,52,130,63,140,63,150,63,160,63,170,63,180,63
 	
 	bullet		BULLET 1		dup(<,,,,,,,>)
