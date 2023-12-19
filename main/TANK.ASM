@@ -171,7 +171,7 @@ ENDP initiateBlocks
 
 ; Set ennemy tanks in corners and player tank in the center
 PROC initiateTanks
-	ARG 	@@PtrTanks:dword, @@PtrInitArray:dword
+	ARG 	@@PtrTanks:dword, @@PtrInitArray:dword, @@PtrBullets:dword
 	USES 	eax, ebx, ecx, edi, edx, esi
 	
 	mov edi, [@@PtrTanks]
@@ -210,6 +210,29 @@ PROC initiateTanks
 	
 	add edi, ebx
 	loop TanksInitLoop
+	
+	mov edi, [@@PtrBullets]
+	mov ebx, [BulletSize]
+	mov ecx, [TotalOfBullets]
+	
+	BulletInitLoop:
+	
+	mov [edi + BULLET.X], 0
+	mov [edi + BULLET.Y], 0
+	
+	mov [edi + BULLET.velX], 0
+	mov [edi + BULLET.velY], 0
+	
+	mov [edi + BULLET.W], 48	; 25 shl 4
+	mov [edi + BULLET.H], 48	; 25 shl 4
+	
+	mov [edi + BULLET.bounces], 0
+	mov [edi + BULLET.active], 0
+	mov [edi + BULLET.col], 3
+	
+	
+	add edi, ebx
+	loop BulletInitLoop
 	
 	ret
 ENDP initiateTanks
@@ -1183,7 +1206,7 @@ PROC TankGame
 	
 	mov edi, offset Tanks
 	mov eax, offset TankPosInitArr
-	call initiateTanks, edi, eax
+	call initiateTanks, edi, eax, offset Bullets
 	
 	
 	NoMouse:
