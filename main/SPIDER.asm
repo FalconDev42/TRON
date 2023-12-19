@@ -354,6 +354,7 @@ PROC initialize_spider_player; give the correct starting
 	mov [esi+PLAYER.COL],1
 	ret
 ENDP initialize_spider_player
+
 PROC spidergame
 	ARG 	@@key:byte
 	USES 	 ebx,esi,edi	
@@ -376,7 +377,7 @@ PROC spidergame
 		int 16h
 		
 		cmp	al,[@@key]; checks to see if we ditch program
-		je  exit
+		je  exit_esc
 		cmp al,122; inset code for (W,) Z want in azerty 
 		
 		je UP
@@ -515,6 +516,8 @@ PROC spidergame
 	inc ecx
 	mov [esi+PLAYER.X],ecx
 	jmp re_spidergameloop
+	exit_esc:
+	mov eax,2
 	exit:
 	mov [edi + BULLET.active],0
 	ret

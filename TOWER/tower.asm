@@ -824,7 +824,7 @@ PROC towergame
 		
 		
 		cmp	al,[@@key]; checks to see if we ditch program
-		je exit
+		je exit_esc
 		cmp al,122; inset code for (W,) Z want in azerty 
 		
 		je UP
@@ -977,6 +977,8 @@ PROC towergame
 	inc ecx
 	mov [esi+PLAYER.X],ecx
 	jmp re_towergameloop
+	exit_esc:
+	mov eax,2
 	exit:
 	mov [edi + BULLET.active],0
 	ret
