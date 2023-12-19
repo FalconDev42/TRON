@@ -50,6 +50,13 @@ MACRO ShowMouse
 	pop eax
 ENDM ShowMouse
 
+MACRO HideMouse
+	push eax
+	mov  ax, 0002h  ; show mouse
+	int  33h
+	pop eax
+ENDM HideMouse
+
 PROC playerInput
 	ARG 	@@PtrPlayer:dword
 	USES 	ebx, ecx, edx, esi, edi	
@@ -249,34 +256,53 @@ start:
 	call setuptron, esi
 	mov ecx, 1
 	
-	cmp eax, 1
+	xor edx, edx
+	cmp ebx, 1
 	jg EscapedGame
 	jl LostGame
-	call DrawIMG, offset winIMG, 100, 5, 120, 30
-	jmp EscapedGame
+	mov ecx, 500
+	mov edx, offset winIMG
+	
+	jmp redrawBackground
 	LostGame:
-	call DrawIMG, offset lossIMG, 100, 5, 120, 30
+	mov ecx, 500
+	mov edx, offset lossIMG
+	
+	jmp redrawBackground
 	EscapedGame:
 	
 	mainLoopTRON:
 	call playerInput, esi
 	
+	cmp ecx, 1
+	je redrawBackground
 	cmp eax, 1
 	jne DontRedrawBackgrnd
+		redrawBackground:
+		HideMouse
 		call drawBackground
+		cmp ecx, 1
+		jle NoImg
+		cmp edx, 0
+		je NoImg
+		call DrawIMG, edx, 100, 5, 120, 30
+		NoImg:
 		ShowMouse
 	DontRedrawBackgrnd:
 	
 	call drawTronEntities, esi
 	
 	call selectGame, [esi + SELECTOR.X], [esi + SELECTOR.Y], 5, 5
-	
-	cmp eax, 3
+	mov ebx, eax
+	cmp ebx, 3
 	jl ReSetupTron
 	
 	push ecx
 	push ebx
 	push edx
+	xor edx, edx
+	xor ecx, ecx
+	
 	mov  ax, 0003h  ; get mouse position and buttonstatus
 	int  33h        ; -> BX CX DX
 	
@@ -293,13 +319,17 @@ start:
 	pop ebx
 	pop ecx
 	
-	cmp eax, 3
+	mov ebx, eax
+	cmp ebx, 3
 	jl ReSetupTron
 	
 	call wait_VBLANK, 1
 	
-	inc ecx	;infinite loop
-	loop mainLoopTRON
+	cmp ecx, 0
+	jle mainLoopTRON	; if ecx is 0 dont decrement
+	dec ecx
+	
+	jmp mainLoopTRON
 	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 	
 	
 	call terminateProcess
