@@ -350,7 +350,7 @@ PROC collision
 	je testRight
 	
 	cmp eax, 1						; If eax is 1 then X2 is in interval
-	jne testRight						; if X2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
+	jne NoCol						; if X2 > X1 + Buffer + W1 > X1 - Buffer thus no colision possible
 	
 	; test if same holds for Y
 	
