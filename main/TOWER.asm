@@ -539,7 +539,7 @@ PROC towergame
 	jmp re_towergameloop ;returns to wait for keypress
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx, SCRHEIGHT-1
+	cmp ecx, SCRHEIGHT-5
 	jge re_towergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
@@ -566,7 +566,7 @@ PROC towergame
 	mov ecx,[esi+PLAYER.X]
 	push eax
 	mov eax, [ebx+4]
-	dec eax
+	sub eax,5
 	cmp ecx, eax
 	pop eax
 	jge re_towergameloop
