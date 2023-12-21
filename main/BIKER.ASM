@@ -120,7 +120,7 @@ PROC ReplaceRectangleDWORD
 	
 	dec ebx
 	cmp ebx, 0
-	jge @@startRectDraw
+	jg @@startRectDraw
 	
 	ret
 ENDP ReplaceRectangleDWORD
@@ -781,36 +781,9 @@ PROC moveBiker
 	mov edx, [BikerSize]
 	mov ecx, [TotalOfBikers]
 	
-	mov eax, edx
-	mul ecx
-	mov edx, [BikerSize]
-	sub eax, edx
-	add edi, eax
-	
 	BikerColisionLoop:
 		cmp [edi + BIKER.alive], 0
 		je SHORT skipBikerDead
-		
-		; mov eax, [edi + BIKER.velX]
-		; mov ebx, [edi + BIKER.velY]
-		
-		; cmp eax, 0
-		; je ColVelIsVert
-		
-		; inc ebx
-		; add eax, [edi + BIKER.X]
-		; add ebx, [edi + BIKER.Y]
-		; call checkColorsInRectangle, esi, eax, ebx, [edi + BIKER.W], BIKERW - 2		; only the inside pixels
-		
-		; jmp CheckIfDead
-		; ColVelIsVert:
-		
-		; inc eax
-		; add eax, [edi + BIKER.X]
-		; add ebx, [edi + BIKER.Y]
-		; call checkColorsInRectangle, esi, eax, ebx, BIKERW - 2, [edi + BIKER.H]		; only the inside pixels
-		
-		; CheckIfDead:
 		
 		mov eax, [edi + BIKER.velX]
 		mov ebx, [edi + BIKER.velY]
@@ -831,8 +804,8 @@ PROC moveBiker
 		mov eax, [edi + BIKER.X]
 		add eax, [edi + BIKER.velX]
 		
-		mov ebx, [edi + BIKER.Y]
-		add ebx, [edi + BIKER.velY]
+		;mov ebx, [edi + BIKER.Y]
+		;add ebx, [edi + BIKER.velY]
 		
 		mov [edi + BIKER.X], eax
 		mov [edi + BIKER.Y], ebx
@@ -843,10 +816,48 @@ PROC moveBiker
 		
 		BikerLongDead:
 	
-	sub edi, edx
-	dec ecx
-	cmp ecx, 0
-	jg BikerColisionLoop
+	add edi, edx
+	loop BikerColisionLoop
+	
+	mov edi, [@@PtrBikers]
+	mov ecx, [TotalOfBikers]
+	
+	BikerBikerColisionLoop:
+		cmp [edi + BIKER.alive], 1
+		jne SHORT DontNeedToTestForDeath
+		
+		xor ebx, ebx
+		
+		push ecx
+		mov ecx, [TotalOfBikers]
+		mov esi, [@@PtrBikers]
+		
+		otherBikersLoop:
+			cmp edi, esi
+			je SHORT dontTestSameBiker
+			cmp [esi + BIKER.alive], 0
+			je SHORT dontTestSameBiker	; biker long dead so no colision possible
+				
+				;@@X1:dword, @@Y1:dword, @@W1:dword, @@H1:dword, @@X2:dword, @@Y2:dword, @@W2:dword, @@H2:dword, @@BufferSpace:dword
+				call collision, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H], 0
+				or ebx, eax	; store every colision result in ebx
+				
+				call collision, [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H], [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], 0
+				or ebx, eax	; store every colision result in ebx
+				
+			dontTestSameBiker:
+			add esi, edx
+		loop otherBikersLoop
+		pop ecx
+
+		cmp ebx, 0 ; if eax is not equal to 0 then there is a color in the future rectangle so biker must die
+		je DontNeedToTestForDeath	; no collision with other Biker
+			mov [edi + BIKER.alive], 2
+			
+		DontNeedToTestForDeath:
+	
+		add edi, edx
+	loop BikerBikerColisionLoop
 	
 	ret
 ENDP moveBiker
