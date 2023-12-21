@@ -574,15 +574,48 @@ PROC BikerAI
 	shl eax, 2
 	add eax, [edi + BIKER.X]
 	
-	push ebx
+	push edx
 	
-	mov ebx, [edi + BIKER.velY]
-	shl ebx, 2
-	add ebx, [edi + BIKER.Y]
+	mov edx, [edi + BIKER.velY]
+	shl edx, 2
+	add edx, [edi + BIKER.Y]
 	
-	call checkColorsInRectangle, [@@PtrPlayGround], eax, ebx, [edi + BIKER.W], [edi + BIKER.H]	; test if this orientation does not contain line
-		
-	pop ebx
+	call checkColorsInRectangle, [@@PtrPlayGround], eax, edx, [edi + BIKER.W], [edi + BIKER.H]	; test if this orientation does not contain line
+	
+	push ecx
+	mov ecx, [TotalOfBikers]
+	push esi	;esi already on first biker
+	
+	dec ecx
+	add esi, ebx
+	
+	push eax	; store result of line collision
+	
+	otherBikersCollisionLoop:
+		cmp edi, esi
+		je SHORT dontTestSameBikerCollision
+		cmp [esi + BIKER.alive], 0
+		je SHORT dontTestSameBikerCollision	; biker long dead so no colision possible
+			mov eax, [edi + BIKER.velX]
+			shl eax, 2
+			add eax, [edi + BIKER.X]
+			push eax
+			
+			call collision, eax, edx, [edi + BIKER.W], [edi + BIKER.H], [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H], 0
+			or [esp + 4], eax	; store every colision result in ebx
+			
+			pop eax
+			call collision, [esi + BIKER.X], [esi + BIKER.Y], [esi + BIKER.W], [esi + BIKER.H], eax, edx, [edi + BIKER.W], [edi + BIKER.H], 0
+			or [esp], eax	; store every colision result in ebx
+				
+		dontTestSameBikerCollision:
+		add esi, ebx
+	loop otherBikersCollisionLoop
+	pop eax
+	pop esi
+	pop ecx
+	
+	pop edx
 	
 	;jmp SHORT SetForNextBiker
 	
