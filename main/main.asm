@@ -281,7 +281,7 @@ start:
 	call setuptron, esi
 	mov ecx, 1
 	
-	mov edx, 100	; number of frames without game selction
+	mov edx, 50	; number of frames without game selction
 	
 	xor edi, edi
 	cmp ebx, 1

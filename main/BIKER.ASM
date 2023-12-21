@@ -571,25 +571,32 @@ PROC BikerAI
 	ColisionTest:
 	
 	mov eax, [edi + BIKER.velX]
-	shl eax, 2
+	;shl eax, 1
 	add eax, [edi + BIKER.X]
 	
 	push edx
 	
 	mov edx, [edi + BIKER.velY]
-	shl edx, 2
+	;shl edx, 1
 	add edx, [edi + BIKER.Y]
 	
 	call checkColorsInRectangle, [@@PtrPlayGround], eax, edx, [edi + BIKER.W], [edi + BIKER.H]	; test if this orientation does not contain line
+	
+	cmp eax, 0
+	jne SHORT skipBikerBikerColision
 	
 	push ecx
 	mov ecx, [TotalOfBikers]
 	push esi	;esi already on first biker
 	
-	dec ecx
-	add esi, ebx
+	;dec ecx
+	;add esi, ebx
 	
 	push eax	; store result of line collision
+	
+	mov edx, [edi + BIKER.velY]
+	shl edx, 1
+	add edx, [edi + BIKER.Y]
 	
 	otherBikersCollisionLoop:
 		cmp edi, esi
@@ -597,7 +604,7 @@ PROC BikerAI
 		cmp [esi + BIKER.alive], 0
 		je SHORT dontTestSameBikerCollision	; biker long dead so no colision possible
 			mov eax, [edi + BIKER.velX]
-			shl eax, 2
+			shl eax, 1
 			add eax, [edi + BIKER.X]
 			push eax
 			
@@ -615,6 +622,7 @@ PROC BikerAI
 	pop esi
 	pop ecx
 	
+	skipBikerBikerColision:
 	pop edx
 	
 	;jmp SHORT SetForNextBiker
@@ -733,7 +741,7 @@ PROC checkColorsInRectangle
 	dec ebx
 	
 	cmp ebx, 0
-	jge @@checkRect
+	jg @@checkRect
 	
 	ret
 ENDP checkColorsInRectangle
@@ -1045,7 +1053,7 @@ PROC selectiveBackgroundFiller
 		
 		call ReplaceRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL, 0
 		
-		call drawFilledRectangle, 0, 0, SCRWIDTH, SCRHEIGHT, 0
+		;call drawFilledRectangle, 0, 0, SCRWIDTH, SCRHEIGHT, 0
 		
 		mov [edi + BIKER.velX], 0
 		mov [edi + BIKER.velY], 0
