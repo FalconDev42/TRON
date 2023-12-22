@@ -123,7 +123,7 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	mov eax, [edi+BRICK.ALIVE]
 	cmp eax, 1
 	jl nocollision
-	call collision,[edi+BRICK.X],[edi+BRICK.Y],[edi+BRICK.W],[edi+BRICK.H],[esi+PLAYER.X], [esi+PLAYER.Y],1,1,2
+	call collision,[edi+BRICK.X],[edi+BRICK.Y],[edi+BRICK.W],[edi+BRICK.H],[esi+PLAYER.X], [esi+PLAYER.Y],1,1,1
 	cmp eax,1
 	jge defeat
 	nocollision:
@@ -154,7 +154,7 @@ PROC initialize_bricks; can also do this just usning a matrix, and would be a lo
 	mov [edi+BRICK.W],10
 	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
-	call randBetweenVal,2,12
+	call randBetweenVal,33,63
 	mov [edi +BRICK.COL],eax
 	add edi, edx
 	loop brick_init_loop
@@ -179,7 +179,7 @@ PROC update_bullet
 	
 	bullet_bounces_X:
 	mov edi, [esi+BULLET.bounces]
-	cmp edi, 3
+	cmp edi, 1
 	jge SHORT bullet_leaves
 	mov ebx, [esi+BULLET.velX]
 	neg ebx
@@ -197,7 +197,7 @@ PROC update_bullet
 	mov eax, [esi+BULLET.Y]
 	add eax, [esi+BULLET.velY]
 	
-	cmp eax,[edx+8]
+	cmp eax,[edx+12]
 	jl SHORT bullet_bounces_Y
 	cmp eax,SCRHEIGHT
 	jg SHORT bullet_bounces_Y
@@ -208,7 +208,7 @@ PROC update_bullet
 	
 	bullet_bounces_Y:
 	mov edi, [esi+BULLET.bounces]
-	cmp edi, 3
+	cmp edi, 1
 	jge bullet_leaves
 	mov ebx, [esi+BULLET.velY]
 	neg ebx
