@@ -83,11 +83,11 @@ PROC setuptower
 	mov  ax, 0001h  ; show mouse
 	int  33h
 	
-	call initialize_tower_player,160,200
+	
 	call ReadFile, offset player_file, offset player_read, PLAYER_SIZE
 	call ReadFile, offset tower_safezone_file, offset tower_safezone_read, TOWER_SIZE
 	
-	
+	call initialize_tower_player
 	call initialize_bricks
 	call towergame,001Bh
 	ret
