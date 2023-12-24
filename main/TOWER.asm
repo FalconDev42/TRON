@@ -51,7 +51,7 @@ MACRO HideMouse
 	pop eax
 ENDM HideMouse
 
-PROC towerterrain
+PROC towerterrain; draws the terrain for the tower
 	USES eax,ebx,esi,edx,ecx
 	mov esi, offset safezone
 	mov eax,[esi+4];takes largest x-valkue
@@ -63,17 +63,16 @@ PROC towerterrain
 	
 	call fillBackground, 16
 	
-	add ecx,ebx
-	inc ecx
+	add ecx,ebx; finds the start Y pos
+	inc ecx; adds one to get right Y
 	call drawFilledRectangle,edx,ecx,eax,SCRHEIGHT,15; draw the white path on which we play
 	dec ecx
-	sub ecx,ebx
-	;call drawFilledRectangle,edx,ecx,eax,ebx,10; need to find color for green, this rectangle will be safe zone/victory zone 
+	sub ecx,ebx; find the right Y for the sprite
 	call DrawIMG, offset tower_safezone_read,edx,ecx,TOW_W,TOW_H
 	ret
 ENDP towerterrain
 
-PROC setuptower
+PROC setuptower; procedure that executes the setup for the 
 	;call setVideoMode,13h
 	NoMouse:
 	mov  ax, 0000h  ; reset mouse
@@ -107,7 +106,7 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	
 	
 	
-	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,0
+	call collision,ecx,ebx,edx,edi,[esi+PLAYER.X], [esi+PLAYER.Y],1,1,0; check if player collides with safezone
 	cmp eax,1
 	jl no_victory_collision
 	mov eax, 1 ; 1 = win
@@ -123,7 +122,7 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	mov eax, [edi+BRICK.ALIVE]
 	cmp eax, 1
 	jl nocollision
-	call collision,[edi+BRICK.X],[edi+BRICK.Y],[edi+BRICK.W],[edi+BRICK.H],[esi+PLAYER.X], [esi+PLAYER.Y],1,1,1
+	call collision,[edi+BRICK.X],[edi+BRICK.Y],[edi+BRICK.W],[edi+BRICK.H],[esi+PLAYER.X], [esi+PLAYER.Y],1,1,1;check if player collides with brick
 	cmp eax,1
 	jge defeat
 	nocollision:
@@ -138,24 +137,24 @@ PROC endcollisioncheck_bricks; checks the conditions for the win, sure its manua
 	ret
 ENDP endcollisioncheck_bricks
 
-PROC initialize_bricks; can also do this just usning a matrix, and would be a lot less of a headache ptn
+PROC initialize_bricks;using array to define start positions of bricks
 	USES eax,ebx,ecx,edx,edi,esi
 	mov edi, offset bricks
 	mov ebx, offset brickmatrix
 	mov ecx, [brickamount]
-	mov edx, [bricksize]; doint it statically rn, to save edx and headache
+	mov edx, [bricksize]
 	brick_init_loop:
 	mov esi,[ebx]
-	mov [edi+BRICK.X],esi
+	mov [edi+BRICK.X],esi; retrieving and assigning correct X
 	add ebx,4
 	mov esi,[ebx]
-	mov [edi+BRICK.Y],esi
+	mov [edi+BRICK.Y],esi; retrieving and assigning correct Y
 	add ebx,4
 	mov [edi+BRICK.W],10
 	mov [edi+BRICK.H],10
 	mov [edi+BRICK.ALIVE],1
 	call randBetweenVal,33,63
-	mov [edi +BRICK.COL],eax
+	mov [edi +BRICK.COL],eax; assigning a random color to keep it interesting
 	add edi, edx
 	loop brick_init_loop
 	
@@ -177,9 +176,9 @@ PROC update_bullet
 	cmp eax,[edx+4]
 	jl return_bullet_x
 	
-	bullet_bounces_X:
+	bullet_bounces_X:; changes the sign of the value of vel_X to simulate a bounce
 	mov edi, [esi+BULLET.bounces]
-	cmp edi, 1
+	cmp edi, 1; checks to see if max bounce limit reached
 	jge SHORT bullet_leaves
 	mov ebx, [esi+BULLET.velX]
 	neg ebx
@@ -206,9 +205,9 @@ PROC update_bullet
 	jmp SHORT exitbullet
 	
 	
-	bullet_bounces_Y:
+	bullet_bounces_Y:; changes the sign of the value of vel_Y to simulate a bounce
 	mov edi, [esi+BULLET.bounces]
-	cmp edi, 1
+	cmp edi, 1; checks to see if max bounce limit reached
 	jge bullet_leaves
 	mov ebx, [esi+BULLET.velY]
 	neg ebx
@@ -219,7 +218,7 @@ PROC update_bullet
 	inc edi
 	mov [esi+BULLET.bounces], edi
 	jmp exitbullet
-	bullet_leaves:
+	bullet_leaves:; if max bounce limit reached sets bullet to inactive
 	mov [esi+BULLET.active],0
 	mov [esi+BULLET.bounces],0
 	exitbullet:
@@ -228,8 +227,6 @@ ENDP update_bullet
 
 PROC drawbrickentities
 	USES eax,ebx,ecx,edx,edi,esi
-	
-	;mov esi, offset bricks
 	mov esi, offset bricks
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
@@ -237,12 +234,10 @@ PROC drawbrickentities
 	drawloop:
 	
 	mov eax, [esi+BRICK.ALIVE]
-	cmp eax,1
+	cmp eax,1;check if brick alive
 	jl check_return
-	mov edi,[esi+BRICK.X]
-	mov ebx,[esi+BRICK.Y]
 	
-	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]
+	call drawFilledRectangle,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[esi+BRICK.COL]; draw the bricks
 	check_return:
 	add esi, edx
 	loop drawloop
@@ -250,14 +245,14 @@ PROC drawbrickentities
 	call DrawIMG,offset player_read, [esi+PLAYER.X],[esi+PLAYER.Y],PLAY_W,PLAY_H; draws new position
 	mov edi, offset bullet
 	mov eax, [edi+BULLET.active]
-	cmp eax,1
+	cmp eax,1;check if bullet active
 	jl nobullet
-	call drawDot,[edi+BULLET.X],[edi+BULLET.Y],[edi+BULLET.COL]
+	call drawDot,[edi+BULLET.X],[edi+BULLET.Y],[edi+BULLET.COL]; draw the bullets
 	nobullet:
 	ret
 ENDP drawbrickentities	
 	
-PROC respawnbricks; two ways to approach, either completely random, or as intended in the game, being that brick can only respawn if touching adjacent brick, now thats a tough one to solve aint gonna lie broski
+PROC respawnbricks; using random respawn, not true to source, see project for explanation
 	USES eax,ebx,ecx,edx,esi,edi
 	mov esi, offset bricks
 	mov ecx, [brickamount]
@@ -268,27 +263,26 @@ PROC respawnbricks; two ways to approach, either completely random, or as intend
 	cmp eax, 1
 	jge reenter_respawn_loop
 	
-	call collision, [esi + BRICK.X],[esi + BRICK.Y],[esi + BRICK.W],[esi + BRICK.H],[edi +PLAYER.X],[edi +PLAYER.Y],1,1,15; moe hier nog even deftige waarden uitrekenen
+	call collision, [esi + BRICK.X],[esi + BRICK.Y],[esi + BRICK.W],[esi + BRICK.H],[edi +PLAYER.X],[edi +PLAYER.Y],1,1,15;checks to see if brick is far enough from player
 	cmp eax, 1
 	jge reenter_respawn_loop
-	mov ebx,[esi + BRICK.RES_CHANCE]
+	mov ebx,[esi + BRICK.RES_CHANCE]; retrieves bricks respawn chance
 	call randBetweenVal,0,100
-	cmp eax,ebx
+	cmp eax,ebx; if random number lower than brick respawn chance=>respawn
 	jge no_respawn
 	mov [esi+BRICK.ALIVE],1
 	mov [esi + BRICK.RES_CHANCE],0
 	jmp reenter_respawn_loop
 	no_respawn:
-	inc ebx
-	mov [esi + BRICK.RES_CHANCE],ebx ; zou dit niet moet stijgen met ebx ?? deze moet ook reset worden als de block respawned
+	inc ebx; if no respawn =>increase brick respawn chance
+	mov [esi + BRICK.RES_CHANCE],ebx 
 	reenter_respawn_loop:
 	add esi, edx
 	loop respawnloop
 	ret
 ENDP respawnbricks
 
-PROC initialize_tower_player; give the correct starting
-
+PROC initialize_tower_player; give the correct starting to player struct from an array
 	USES eax,ebx,esi
 	mov eax, [playerspawn]
 	mov ebx, [playerspawn+4]
@@ -296,21 +290,19 @@ PROC initialize_tower_player; give the correct starting
 	mov [esi+PLAYER.X],eax
 	mov [esi+PLAYER.Y],ebx
 	mov [esi +PLAYER.ALIVE],1
-	mov [esi+PLAYER.COL],1
 	ret
 ENDP initialize_tower_player
 
 PROC lowertower
-
 	USES eax,ebx,ecx,edx,esi,edi
 	mov eax, [safezone+8]
 	mov ebx,[safezone+12]
 	inc eax
 	inc ebx
-	mov [safezone+8],eax
+	mov [safezone+8],eax;increase safezone Y by one
 	mov [safezone+12],ebx
 
-	mov esi, offset bricks
+	mov esi, offset bricks; will iterate over all the bricks increasing  the Y pos by one
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
 	lower_brick_loop:
@@ -320,14 +312,14 @@ PROC lowertower
 	add esi, edx
 	loop lower_brick_loop
 	mov ebx, [rotatecount]
-	cmp ebx,ROTATE_SPEED; adjust value here to adjust speed of rotation
+	cmp ebx,ROTATE_SPEED; checks to see when rotation of tower is necessary
 	jg rotate_tower
-	inc ebx
+	inc ebx; if not inc the count till rotation
 	mov [rotatecount], ebx
 	jmp skip_rotate
 	rotate_tower:
 	call rotatetower
-	mov [rotatecount], 0
+	mov [rotatecount], 0; if rotation happens reset the count
 	skip_rotate:
 	call respawnbricks
 	ret
@@ -339,13 +331,13 @@ PROC rotatetower
 	mov ecx, [brickamount]
 	mov edx, [bricksize]
 	rotate_loop:
-	mov eax,[esi+BRICK.X]
+	mov eax,[esi+BRICK.X]; add width to X
 	add eax, [esi+BRICK.W]
 	cmp eax, [safezone+4]
 	jge right_to_left
 	mov [esi+BRICK.X],eax
 	jmp skip_L_to_R
-	right_to_left:
+	right_to_left:; if X exceeds safezone max X=> set back to safezone min X
 	mov ebx,[safezone]
 	mov [esi+BRICK.X], ebx
 	skip_L_to_R:
@@ -355,7 +347,7 @@ PROC rotatetower
 	ret
 ENDP rotatetower
 
-PROC checkbrickbulletcollision
+PROC checkbrickbulletcollision; checks if bullet collides with any of the bricks
 	USES eax,ebx,ecx,edx,esi,edi
 	mov esi, offset bricks
 	mov ecx, [brickamount]
@@ -365,17 +357,16 @@ PROC checkbrickbulletcollision
 	brickloop:
 	mov eax,[edi +BULLET.active]
 	cmp eax,1
-	jl exit_bullet_collision
+	jl exit_bullet_collision; if bullet inactive exit loop
 	mov eax, [esi+BRICK.ALIVE]
 	cmp eax,1
 	jge brick_alive
-	;insert code for respawn right here
 	jmp re_enterbrickloop
 	brick_alive:
-	call collision,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[edi +BULLET.X],[edi +BULLET.Y],1,1,1
+	call collision,[esi+BRICK.X],[esi+BRICK.Y],[esi+BRICK.W],[esi+BRICK.H],[edi +BULLET.X],[edi +BULLET.Y],1,1,1;checks for the collision
 	cmp eax,0
 	je re_enterbrickloop
-	mov [esi+BRICK.ALIVE],0
+	mov [esi+BRICK.ALIVE],0;sets both to dead/inactive if collision
 	mov [edi+BULLET.active],0
 	re_enterbrickloop:
 	add esi, edx
@@ -395,16 +386,16 @@ PROC towergame
 		call towerterrain; activate if want to clear behind character
 		
 		call drawbrickentities
-		ShowMouse
+		ShowMouse; for smooth mouse 
 		call endcollisioncheck_bricks
-		cmp eax, 2
+		cmp eax, 2; check if end condition triggered
 		jl exit
 		inc edx
 		call wait_VBLANK, 2
 		call checkbrickbulletcollision
-		cmp edx,TOWER_SPEED; change the amount to change dificulty, will decide how often the whole shit descends
-		jl continuegameloop	; edx start bij 0 dan word 1 en dan als het kleiner is dan 10 opnieuw 0?? (btw deze jump is de reden dat de tower plotseling trager naar beneden ging)
-		mov edx,0																						 ;(edx wordt wss ergens verandert waardoor het enkel gebeurde wanneer de bullet geactiveerd werd)
+		cmp edx,TOWER_SPEED; change the amount to change dificulty, will decide how often the whole shit descends, checks if tower needs to be lowered or not
+		jl continuegameloop	
+		mov edx,0																						 
 		call lowertower
 		continuegameloop:
 		
@@ -422,17 +413,17 @@ PROC towergame
 		
 		cmp	al,[@@key]; checks to see if we ditch program
 		je exit_esc
-		cmp al,122; inset code for (W,) Z want in azerty 
+		cmp al,122; inset code for Z as is used in azerty
 		
 		je UP
 		cmp al,115; checks to see for S
 		je DOWN
 		cmp al,113; checks for Q
 		je LEFT
-		cmp al,100; checks for D		; gaat moeten geswitched worden naar azerty je kan 'd' gebruiken voor de keycode ipv een getal
+		cmp al,100; checks for D		
 		je RIGHT
 		re_towergameloop:
-		push edx
+		push edx; is needed as mouse uses edx
 		mov edi, offset bullet
 		; getting an error here that the bullet slows down the tower relative to when there is no bullet present
 		; cant seem to find where=> will keep bullet alive, yet throw it to 1,1 with 0 velocity if it is 
@@ -529,51 +520,44 @@ PROC towergame
 	jne	towergameloop ; if doesnt find anything restart
 	
 	UP:
-	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx,1 ; checks borders
 	jl re_towergameloop
-	
 	dec ecx ; moves position
 	mov [esi+PLAYER.Y],ecx
 	jmp re_towergameloop ;returns to wait for keypress
+	
 	DOWN:
 	mov ecx,[esi+PLAYER.Y]
-	cmp ecx, SCRHEIGHT-5
+	cmp ecx, SCRHEIGHT-5; checks borders
 	jge re_towergameloop
 	inc ecx
 	mov [esi+PLAYER.Y],ecx
-	jmp re_towergameloop
+	jmp re_towergameloop;returns to wait for keypress
 	
 	LEFT:
 	mov ebx, offset safezone
-	;xor al,al
 	mov ecx, [esi+PLAYER.X]
-	push eax
 	mov eax, [ebx]
 	inc eax
 	cmp ecx, eax
-	pop eax
-	jl re_towergameloop
-	
+	jl re_towergameloop;returns to wait for keypress
 	dec ecx
 	mov [esi+PLAYER.X],ecx
-	jmp re_towergameloop
+	jmp re_towergameloop;returns to wait for keypress
 	
 	RIGHT:
 	mov ebx, offset safezone
-	;xor al,al
 	mov ecx,[esi+PLAYER.X]
-	push eax
 	mov eax, [ebx+4]
 	sub eax,5
 	cmp ecx, eax
-	pop eax
-	jge re_towergameloop
+	jge re_towergameloop;returns to wait for keypress
 	
 	inc ecx
 	mov [esi+PLAYER.X],ecx
-	jmp re_towergameloop
+	jmp re_towergameloop;returns to wait for keypress
+	
 	exit_esc:
 	mov eax,2
 	exit:
@@ -631,7 +615,6 @@ STRUC PLAYER
 	X dd 0
 	Y dd 0
 	ALIVE dd 1
-	COL dd 1
 ENDS
 
 STRUC BULLET

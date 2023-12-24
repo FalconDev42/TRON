@@ -50,7 +50,6 @@ PROC updatespider_bullet; controls behaviour of spiders, dead and alive, and bul
     USES eax, ebx, esi, edx,ecx,edi
     mov ebx, offset player;gets player position
     mov ecx, [spideramount]; counter for the amount of spiders we will iterate over
-    ;mov ecx, ecx    ; The counter for the loop
     mov esi, offset spiders
 	mov eax, 0
 	mov edi, [spidersize]
@@ -216,12 +215,6 @@ ENDP spiderterrain
 PROC setupspider ; set up the game, this proc is mainly used as to keep the main clean
 	USES ebx, ecx, edx, edi, esi
 	
-	; recall function to avoid visual glitch
-	call setVideoMode,13h
-	
-	;push ds
-	;pop es
-	
 	NoMouse:
 	mov  ax, 0000h  ; reset mouse
 	int  33h        ; -> AX BX
@@ -229,7 +222,6 @@ PROC setupspider ; set up the game, this proc is mainly used as to keep the main
 	jne  NoMouse
 	mov  ax, 0001h  ; show mouse
 	int  33h
-	;read data to draw the spider and player
 	call ReadFile, offset player_file, offset playerread, IMGSIZE 
 	call ReadFile, offset spider_file, offset spiderread, IMGSIZE 
 	
@@ -318,7 +310,7 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 	mov esi,offset player
 	mov eax,offset safezone
 	
-	mov edx,[eax+4]
+	mov edx,[eax+4]; find smallest X and Y, and the W and H of safezone
 	mov ecx,[eax]
 	sub edx,ecx
 	mov edi,[eax+12]
@@ -356,7 +348,7 @@ PROC checkendcollision; will be used to check collision for victory det, collisi
 ENDP checkendcollision
 
 
-PROC initialize_spider_player; give the correct starting
+PROC initialize_spider_player; give the correct starting position from an array to the struct
 	USES eax,ebx,esi,edx
 	mov eax, offset playerpos
 	mov esi, offset player
@@ -366,7 +358,7 @@ PROC initialize_spider_player; give the correct starting
 	mov edx, [eax]
 	mov [esi+PLAYER.Y],edx
 	mov [esi +PLAYER.ALIVE],1
-	mov [esi+PLAYER.COL],1
+	
 	ret
 ENDP initialize_spider_player
 
@@ -498,7 +490,6 @@ PROC spidergame
 	jne	spidergameloop ; if doesnt find anything restart
 	
 	UP:
-	;xor al,al
 	mov ecx,[esi+PLAYER.Y]
 	cmp ecx,3 ; checks borders
 	jl re_spidergameloop
@@ -515,7 +506,7 @@ PROC spidergame
 	jmp re_spidergameloop
 	
 	LEFT:
-	;xor al,al
+	
 	mov ecx, [esi+PLAYER.X]
 	cmp ecx,3
 	jl re_spidergameloop
@@ -525,7 +516,7 @@ PROC spidergame
 	jmp re_spidergameloop
 	
 	RIGHT:
-	;xor al,al
+	
 	mov ecx,[esi+PLAYER.X]
 	cmp ecx, SCRWIDTH-3
 	jge re_spidergameloop
@@ -554,12 +545,10 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+SPIDER.Y]
 	sub ebx, 2
-	call DrawIMG, offset spiderread, edi, ebx, SPID_W, SPID_H
+	call DrawIMG, offset spiderread, edi, ebx, SPID_W, SPID_H; draw spider using the sprite
 	no_draw_spider:
 	add esi, edx
 	loop spiderdrawloop
-	
-	
 	
 	mov esi, offset player
 	
@@ -567,7 +556,7 @@ PROC DrawEntities
 	sub edi, 2; to get the topleft corner
 	mov ebx,[esi+PLAYER.Y]
 	sub ebx, 2
-	call DrawIMG, offset playerread, edi, ebx, PLAY_W, PLAY_H
+	call DrawIMG, offset playerread, edi, ebx, PLAY_W, PLAY_H; draw player using sprite
 	
 	mov esi, offset bullet
 	mov eax, [esi+BULLET.active]
@@ -597,7 +586,6 @@ STRUC PLAYER
 	X dd 160
 	Y dd 160
 	ALIVE dd 1
-	COL dd 15
 ENDS PLAYER
 
 STRUC BULLET
