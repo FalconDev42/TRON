@@ -574,27 +574,7 @@ PROC towergame
 	mov [edi+12], esi
 	ret
 ENDP towergame
-start:
-     sti            ; set The Interrupt Flag => enable interrupts
-     cld            ; clear The Direction Flag
 
-	push ds
-	pop es
-	mov ah, 09h
-	mov edx, offset msg
-	int 21h
-	xor ah,ah
-	xor edx,edx
-	
-	; Wait for keystroke and read character.
-	mov ah,00h
-	int 16h
-	;call setVideoMode,13h
-	call setuptower
-	
-	mov ah,00h
-	int 16h
-	call terminateProcess
 
 ; -------------------------------------------------------------------
 ; DATA
@@ -630,7 +610,6 @@ ENDS BULLET
 
 DATASEG
 
-	msg	db "Hello User! Welcome to the tower game, press any button to continue.", 13, 10, '$'
 	
 	player		PLAYER		1		dup(< ,,,>)
 	playeramount dd 1;both this and the size shouldnt matter, atleast not how the procedures are set up now

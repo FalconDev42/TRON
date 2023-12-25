@@ -601,9 +601,6 @@ ENDS BULLET
 
 DATASEG
 
-	msg	db "Hello User! Welcome to the spider game, press any button to continue.", 13, 10, '$'
-	
-	palette		db 768 dup (?)
 	player		PLAYER		1		dup(< ,,,>)
 	playeramount dd 1;both this and the size shouldnt matter, atleast not how the procedures are set up now
 	playersize dd 16;
@@ -627,9 +624,6 @@ DATASEG
 	spiderpos dd 150,90,160,90,170,90,150,50,160,50,170,50,140,70,180,70,160,100; contains the starting x followed by y positions of first the player,and than each spider, will also be used to assing the respawn points of the spiders
 	safezone dd 150,170,60,80 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
-	victory db "you won!", 13, 10, '$'
-	
-	lossmessage db "you lost!", 13, 10, '$'
 	
 	randSeed		dd			2003630
 	spider_file db "spider.bin", 0
