@@ -44,7 +44,7 @@ MACRO HideMouse
 	pop eax
 ENDM HideMouse
 
-PROC rotateIMG
+PROC rotateIMG	; performs a matrix transpose on the sprite (spites are symmetrical in both axis)
 	ARG	 @@OGIMGPtr:dword, @@IMGPtr:dword, @@w:dword, @@h:dword
 	USES esi, edi, ecx, eax, edx, ebx
 	
@@ -74,7 +74,7 @@ PROC rotateIMG
 	ret	
 ENDP rotateIMG
 
-PROC ReplaceRectangleDWORD
+PROC ReplaceRectangleDWORD		; replaceses col by another col, prevents to draw over a color from another biker/border to avoid gaps in line
 	ARG 	@@PtrStartScreen:dword, @@x0:dword, @@y0:dword, @@w:dword, @@h:dword, @@OGCol: dword, @@newCol: dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
@@ -138,7 +138,7 @@ PROC initiateBikers
 	BikersInitLoop:		; reset biker structs
 	
 	mov eax, [esi]
-	mov [edi + BIKER.X], eax
+	mov [edi + BIKER.X], eax		; read position of biker in array
 	add esi, 4
 	
 	mov eax, [esi]
@@ -146,7 +146,7 @@ PROC initiateBikers
 	add esi, 4
 	
 	mov eax, [edx]
-	mov [edi + BIKER.velX], eax
+	mov [edi + BIKER.velX], eax		; read start speed of biker in array
 	add edx, 4
 	
 	mov eax, [edx]
@@ -156,7 +156,7 @@ PROC initiateBikers
 	cmp eax, 0
 	je BikerIsHorizontal
 	mov [edi + BIKER.W], BIKERW
-	mov [edi + BIKER.H], BIKERH
+	mov [edi + BIKER.H], BIKERH		; set right shape for specific start speed
 	
 	jmp EndBikerRotationInit
 	BikerIsHorizontal:
@@ -172,13 +172,13 @@ PROC initiateBikers
 	add edi, ebx
 	loop BikersInitLoop
 	
-	mov edi, [@@PtrPlayGround]
+	mov edi, [@@PtrPlayGround]		; reset PlayGround to black (background)
 	xor eax, eax
 	mov ecx, SCRWIDTH*SCRHEIGHT
 	rep stosd			; reset PlayGround
 	
 	
-	mov eax, BORDERCOLOR
+	mov eax, BORDERCOLOR			; draw the border
 	mov ecx, SCRWIDTH
 	mov edi, [@@PtrPlayGround]
 	
@@ -218,7 +218,7 @@ PROC rotateBikerUp
 	shr eax, 1
 	neg eax
 	
-	cmp [edi + BIKER.velX], 0
+	cmp [edi + BIKER.velX], 0		; depending on place of line different translation
 	jg BikerWasGoingRightU
 	add eax, BIKERH
 	BikerWasGoingRightU:
@@ -226,7 +226,7 @@ PROC rotateBikerUp
 	add eax, [edi + BIKER.X]
 	mov [edi + BIKER.X], eax
 	
-	mov eax, BIKERW
+	mov eax, BIKERW				; simple matrix rotation with translation
 	shr eax, 1
 	sub eax, BIKERH
 	add eax, [edi + BIKER.Y]
@@ -251,7 +251,7 @@ PROC rotateBikerDown
 	shr eax, 1
 	neg eax
 	
-	cmp [edi + BIKER.velX], 0
+	cmp [edi + BIKER.velX], 0	; depending on place of line different translation
 	jg BikerWasGoingRightD
 	add eax, BIKERH
 	BikerWasGoingRightD:
@@ -259,13 +259,13 @@ PROC rotateBikerDown
 	add eax, [edi + BIKER.X]
 	mov [edi + BIKER.X], eax
 	
-	mov eax, BIKERW
+	mov eax, BIKERW			; matrix rotation and translation
 	shr eax, 1
 	;sub eax, BIKERH
 	add eax, [edi + BIKER.Y]
 	mov [edi + BIKER.Y], eax
 	
-	mov [edi + BIKER.velX], 0
+	mov [edi + BIKER.velX], 0			; set new speed and shape
 	mov [edi + BIKER.velY], BIKERSPEED
 	mov [edi + BIKER.W], BIKERW
 	mov [edi + BIKER.H], BIKERH
@@ -281,20 +281,20 @@ PROC rotateBikerRight
 	
 	mov eax, BIKERW
 	shr eax, 1
-	add [edi + BIKER.X], eax
+	add [edi + BIKER.X], eax	; simple matrix rotation with translation
 	
 	mov eax, BIKERW
 	shr eax, 1
 	neg eax
 	
-	cmp [edi + BIKER.velY], 0
+	cmp [edi + BIKER.velY], 0	; depending on place of line different translation
 	jg BikerWasGoingDownR
 	add eax, BIKERH
 	BikerWasGoingDownR:
 	
 	add [edi + BIKER.Y], eax
 	
-	mov [edi + BIKER.velX], BIKERSPEED
+	mov [edi + BIKER.velX], BIKERSPEED	; set new speed and shape
 	mov [edi + BIKER.velY], 0
 	mov [edi + BIKER.W], BIKERH
 	mov [edi + BIKER.H], BIKERW
@@ -302,7 +302,7 @@ PROC rotateBikerRight
 	ret
 ENDP rotateBikerRight
 
-PROC rotateBikerLeft
+PROC rotateBikerLeft	; rotates the biker left arround the end of the line
 	ARG		@@PtrBiker:dword
 	USES 	eax, ebx, ecx, edx, edi, esi
 	
@@ -312,14 +312,13 @@ PROC rotateBikerLeft
 	shr eax, 1
 	sub eax, BIKERH
 	inc eax
-	;add eax, [edi + BIKER.X]
-	add [edi + BIKER.X], eax
+	add [edi + BIKER.X], eax		; simple matrix rotation with translation
 	
 	mov eax, BIKERW
 	shr eax, 1
 	neg eax
 	
-	cmp [edi + BIKER.velY], 0
+	cmp [edi + BIKER.velY], 0	; depending on the direction of the biker the line is at another place so different translation
 	jg BikerWasGoingDownL
 	add eax, BIKERH
 	BikerWasGoingDownL:
@@ -327,7 +326,7 @@ PROC rotateBikerLeft
 	add eax, [edi + BIKER.Y]
 	mov [edi + BIKER.Y], eax
 	
-	mov [edi + BIKER.velX], -BIKERSPEED
+	mov [edi + BIKER.velX], -BIKERSPEED		; set he new speed and shape
 	mov [edi + BIKER.velY], 0
 	mov [edi + BIKER.W], BIKERH
 	mov [edi + BIKER.H], BIKERW
@@ -419,7 +418,7 @@ PROC BikerAI
 	cmp [edi + BIKER.alive], 1
 	jne AIBikerNotAlive
 	
-	; push ecx
+	; push ecx	; deprecated code to make the biker target the closest biker instead of only the player (made game to easy)
 		
 	; mov ecx, [TotalOfBikers]
 	; mov edx, [@@PtrBikers]
@@ -910,7 +909,7 @@ PROC EraseLine
 	
 	mov ecx, [@@x0]
 	shl ecx, 2
-	;Compute the index of the rectangle's top left corner
+	;Compute the index of the rectangle's top left corner (in dwords)
 	mov eax, [@@y0]
 	mov edx, SCRWIDTH * 4
 	mov ebx, edx
@@ -921,6 +920,7 @@ PROC EraseLine
 	mov edi, [@@PlayGroundPtr]
 	add edi, eax
 	
+	; calculate where the end of the line should be
 	mov eax, [@@h]
 	shr eax, 1	;div by 2 to get center but also mul by 4 to work with dwords
 	mul ebx	;horizontal center of bike in eax
@@ -949,7 +949,6 @@ PROC EraseLine
 	cmp [@@VelY], 0
 	jl VelYLineIsNeg
 	sub edi, ebx	;top of bike
-	;sub edi, ebx
 	jmp FoundEndLine
 	
 	VelYLineIsNeg:
@@ -961,15 +960,18 @@ PROC EraseLine
 	FoundEndLine:
 	
 	
-	mov eax, [@@col]
+	mov eax, [@@col]	; once end of line is found check if that pix is of right color
 	cmp [edi], eax
-	jne SHORT EndLineReset
+	;jne SHORT EndLineReset
+	jne dontRemoveThatCol	; if we dont have the right color it may be that the biker rotated wich gave the wrong address so dont remove that pixel but look for the line
 
 	ResetPixelOfLine:
-	xor ebx, ebx
+	xor ebx, ebx		; mov 0 (background) to the place where the line was
 	mov [edi], ebx
+	
+	dontRemoveThatCol:
 
-	cmp[edi - 4], eax
+	cmp[edi - 4], eax	; check surrounding pixels to find the line
 	jne LineIsNotLeft
 	sub edi, 4
 	jmp ResetPixelOfLine
@@ -993,7 +995,7 @@ PROC EraseLine
 	jmp ResetPixelOfLine
 	LineIsNotBottom:
 	
-	;; two time further (to solve problem where you had line staying because of the fast turnin of the AI)
+	;; two time further (to solve problem where you had line staying because of the fast turnin of the AI) (didn't solve every edge case so used loop in show to remove residual)
 	cmp[edi - 8], eax
 	jne LineIsNotLeft2
 	sub edi, 8
@@ -1019,7 +1021,7 @@ PROC EraseLine
 	LineIsNotBottom2:
 	
 
-	EndLineReset:
+	;EndLineReset:	; if we find no other pixel with line color end the proc
 	
 	ret
 	
@@ -1049,9 +1051,9 @@ PROC selectiveBackgroundFiller
 		; afterwards erase for the last time the biker and set alive status to 0 such that we dont draw over him anymore
 		
 		
+		call ReplaceRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL, 0
 		call EraseLine, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], [edi + BIKER.velX], [edi + BIKER.velY], [edi + BIKER.col]
 		
-		call ReplaceRectangleDWORD, esi, [edi + BIKER.X], [edi + BIKER.Y], [edi + BIKER.W], [edi + BIKER.H], INVISIBLECOL, 0
 		
 		;call drawFilledRectangle, 0, 0, SCRWIDTH, SCRHEIGHT, 0
 		
@@ -1090,11 +1092,11 @@ PROC show
 	mov edx, [@@PtrBiker]
 	
 	BikersShowLoop:
-	mov eax, [esi]
+	mov eax, [esi]; move color to eax
 	
 	; remove residual lines if not yet removed
 	;jmp NoColorChange ; debugging
-	cmp al, 0
+	cmp al, 0	; if color is 0 (background) or BORDERCOLOR dont change anything if color is INVISIBLECOL then dont copy
 	je NoColorChange
 	cmp al, BORDERCOLOR
 	je NoColorChange
@@ -1102,18 +1104,18 @@ PROC show
 	je EndPixelUpdate
 	
 	cmp eax, ebx
-	je PlayerColor
+	je PlayerColor	; if color is first color -> player -> player color
 	
 	; remove residual lines if not yet removed
-	sub eax, [TotalOfBikers]
+	sub eax, [TotalOfBikers]	; calculate the address of the biker to check if dead
 	neg eax
 	push edx
 	mul [BikerSize]
 	pop edx
 	 
-	cmp [edx + eax + BIKER.alive], 1
+	cmp [edx + eax + BIKER.alive], 1	; if biker still alive just show right color
 	je ShowPix
-	xor eax, eax
+	xor eax, eax		; if biker dead remove that color from both the playground and the screen
 	mov [esi], eax
 	mov [edi], al
 	ShowPix:
@@ -1138,7 +1140,7 @@ PROC show
 	add esi, 4
 	loop BikersShowLoop
 	
-	mov edx, [@@PtrBiker]
+	mov edx, [@@PtrBiker]	; draw sprites where bikers are
 	mov eax, [BikerSize]
 	mov ecx, [TotalOfBikers]
 
@@ -1155,7 +1157,7 @@ PROC show
 	add edx, eax
 	dec ecx
 	
-	mov esi, offset ennemyIMG
+	mov esi, offset ennemyIMG	; load sprites for ennemies and loop through them
 	mov edi, offset ennemyIMGH
 	
 	imgLoop:
@@ -1177,7 +1179,7 @@ PROC show
 	ret
 ENDP show
 
-;returns a value in eax; test if eax = 10000(bin) then player wins, if eax < 10000(bin) ennemies win
+;returns a value in eax; test if eax = 10000(bin) then player wins, if eax < 10000(bin) ennemies win (for 5 bikers)
 PROC endConditionBiker
 	ARG 	@@PtrBikers:dword
 	USES 	edi, ebx, ecx
@@ -1207,13 +1209,12 @@ PROC BikerGame
 	
 	;push ds
 	;pop es
-	; recall function to avoid visual glitch
 	;call setVideoMode, 13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
 	
 	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
 	call ReadFile, offset playerFile, offset playerIMG, IMGSIZE
 	
-	call rotateIMG, offset ennemyIMG, offset ennemyIMGH, BIKERW, BIKERH
+	call rotateIMG, offset ennemyIMG, offset ennemyIMGH, BIKERW, BIKERH	; create hor version of sprite
 	call rotateIMG, offset playerIMG, offset playerIMGH, BIKERW, BIKERH
 	
 	mov edi, offset Bikers
@@ -1225,13 +1226,13 @@ PROC BikerGame
 	mov edx, [@@WaitNFrames]
 	
 	mov ebx, 1
-	mov ecx, [@@NBikers]
+	mov ecx, [@@NBikers]	; calculate the value we have to compare to for a given number of bikers
 	shl ebx, cl
 	
 	mov ecx, 20000
 	drawLoop:
 	
-	HideMouse
+	HideMouse		; hide the mouse every frame to be sure it doesn't appear
 	
 	call selectiveBackgroundFiller, edi, esi
 	

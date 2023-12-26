@@ -438,10 +438,9 @@ PROC TankAI
 	; first check distance to playertank
 	; if distance less than 60 (Wtank + Wblock + buffer)
 	; then move away from player (sign change)
-	; else move towards tank (sign change)
-	; check if block is in the way, if so take other option that maximises the attitude (X->Y or Y->X)
-	; shoot if distance less than 60 and no block in the way
-	; if no direct way to see player shoot halfway distance in biggest delta and shoot boundary
+	; else move towards tank
+	; check if block is in the way both vel 0, if so take other option that maximises the attitude (X->Y or Y->X)
+	; shoot if distance less than 60
 	
 	mov eax, [edi + TANK.X]	; AI tank
 	sub eax, [esi + TANK.X] ; Player tank
@@ -993,7 +992,7 @@ PROC selectiveBackgroundFiller
 	
 	mov eax, [edi + TANK.X]
 	mov ebx, [edi + TANK.Y]
-	mov edx, [edi + TANK.W]
+	mov edx, [edi + TANK.W]			; also reset tanks and bullets to background color in case mouse is on tank/bullet
 	mov esi, [edi + TANK.H]
 	shr eax, SCALARBITSHIFT
 	shr ebx, SCALARBITSHIFT
@@ -1059,7 +1058,6 @@ PROC selectiveBackgroundFiller
 		mov ecx, (SCRWIDTH - 8)/4
 		
 		rep stosd
-		
 		
 		cmp edi, (SCRWIDTH*SCRHEIGHT) + VMEMADR
 		jg MouseTooLow	; edi is further than last pixel of screen so dont Draw
