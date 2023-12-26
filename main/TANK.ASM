@@ -1193,7 +1193,7 @@ PROC TankGame
 	;pop es
 	
 	; recall function to avoid visual glitch
-	call	setVideoMode,13h ;320x200 pixels, A palette of 256 colors, 6 bits per RGB channel (control with 1 byte)
+	call	setVideoMode, 13h
 	
 	call ReadFile, offset ennemyFile, offset ennemyIMG, IMGSIZE
 	call ReadFile, offset playerFile, offset playerIMG, IMGSIZE
@@ -1218,7 +1218,7 @@ PROC TankGame
 	
 	mov ebx, offset Bullets
 	
-	mov ecx, 5000
+	mov ecx, 10000
 	drawLoop:
 	
 	call selectiveBackgroundFiller, edi, ebx
@@ -1316,8 +1316,6 @@ ENDS TANK
 ; DATA
 ; -------------------------------------------------------------------
 DATASEG
-randSeed		dd			2003630
-
 Tanks			TANK		5	dup	(<,,,,,,,>)
 TankSize	 	dd 			32
 TotalOfTanks	dd			5
@@ -1331,10 +1329,6 @@ TotalOfBullets	dd			5
 Blocks			BLOCK		4	dup	(<,,,,>)
 BlockSize	 	dd 			20
 TotalOfBlocks	dd			4
-
-WinMsg			db 	"You WON!", 13, 10, '$'
-LoseMsg			db 	"You LOST", 13, 10, '$'
-
 
 ennemyFile db "tank.bin", 0
 playerFile db "tankply.bin", 0

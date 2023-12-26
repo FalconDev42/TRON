@@ -625,7 +625,6 @@ DATASEG
 	safezone dd 150,170,60,80 ; sets the boundaries for the x value and y value for the winzone, first two being lower and upper x and last two being lower and upper y
 	
 	
-	randSeed		dd			2003630
 	spider_file db "spider.bin", 0
 	player_file db "player.bin", 0
 	

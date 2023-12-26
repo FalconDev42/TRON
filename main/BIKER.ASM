@@ -1290,8 +1290,6 @@ ENDS BIKER
 ; DATA
 ; -------------------------------------------------------------------
 DATASEG
-randSeed		dd			2003630
-
 Bikers			BIKER		5	dup	(<,,,,,,,>)
 BikerSize	 	dd 			32
 TotalOfBikers	dd			5
@@ -1301,17 +1299,8 @@ BikerVelInitArr	dd				0, -BIKERSPEED,	BIKERSPEED, 0, 	0, BIKERSPEED,	0, -BIKERSP
 
 PlayGround		dd 			SCRWIDTH*SCRHEIGHT dup (0)
 
-WinMsg			db 	"You WON!", 13, 10, '$'
-LoseMsg			db 	"You LOST", 13, 10, '$'
-
-
 ennemyFile db "biker.bin", 0
 playerFile db "bikerply.bin", 0
-
-openErrorMsg db "could not open file", 13, 10, '$'
-readErrorMsg db "could not read data", 13, 10, '$'
-closeErrorMsg db "error during file closing", 13, 10, '$'
-
 
 
 UDATASEG

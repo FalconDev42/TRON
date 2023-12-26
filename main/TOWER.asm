@@ -633,7 +633,6 @@ DATASEG
 	; width of safezone needs to be a 6 times width of bricks
 
 	
-	randSeed		dd			2003630
 	tower_safezone_file db "safe.bin", 0
 	player_file db "player.bin", 0
 	

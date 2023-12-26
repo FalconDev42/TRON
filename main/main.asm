@@ -301,16 +301,16 @@ start:
 	mainLoopTRON:
 	call playerInput, esi
 	
-	cmp ecx, 1
+	cmp ecx, 1			; if msg display ended than have to reset backgrnd
 	je redrawBackground
 	cmp eax, 1
 	jne DontRedrawBackgrnd
 		redrawBackground:
 		HideMouse
 		call drawBackground
-		cmp ecx, 1
+		cmp ecx, 1		; if ecx less than 1 we drew the image for all the necessary frames
 		jle NoImg
-		cmp edi, 0
+		cmp edi, 0		; check that we have to show an image
 		je NoImg
 		call DrawIMG, edi, 100, 5, 120, 30
 		NoImg:
@@ -367,7 +367,6 @@ start:
 	dec ecx
 	
 	jmp mainLoopTRON
-	;; groote project: herschrijf alles om zoveel van de TANKS file opnieuw te gebruiken, zou doenbaar moeten zijn denk ik dan 	
 	
 	call terminateProcess
 
@@ -384,15 +383,8 @@ ENDS SELECTOR
 
 
 DATASEG
-
-	msg	db "Hello User! Welcome to the TRON game, use ZQSD to move your player around and left mouse to shoot, press any button to continue.", 13, 10, '$'
-	
 	selector		SELECTOR		1		dup(<,>)
 
-	victory db "you won!", 13, 10, '$'
-	
-	lossmessage db "you lost!", 13, 10, '$'
-	
 	player_file db "player.bin", 0
 	backgroundIMG_file db "backgrnd.bin", 0
 	winIMG_file db "winscrn.bin", 0
@@ -410,6 +402,3 @@ UDATASEG
 STACK 100h
 
 END start
-
-; 12 is colorcode for red
-; 10 voor groen
